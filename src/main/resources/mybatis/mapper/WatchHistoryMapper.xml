@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.WatchHistoryDAO">
+	<select id="selectAllWatchHistoryByMemNo" parameterType="hashMap" resultType="storybird.vo.WatchHistoryVo">
+		SELECT *,
+			CASE w_type WHEN '대여' THEN DATE_ADD(use_date, INTERVAL 90 DAY)
+			WHEN '정기권' THEN fn_mem_ship_end_date(mem_ship_seq)
+			ELSE NULL
+			END rent_end_date
+		FROM
+		(
+			SELECT watch_seq, o.opus_no, w.mem_no, o.opus_title, e.epi_seq, e.epi_title, e.epi_num, fn_author_no_to_name(o.author_no,',') author_name,
+			o.thumb_path, use_date, last_watch_date, w_cnt, mem_ship_seq,
+			CASE WHEN rant_yn = 'N' THEN '소장' WHEN rant_yn = 'Y' AND use_cash > 0 THEN '대여'
+			WHEN mem_ship_seq IS NOT NULL THEN '정기권' ELSE '무료' END w_type
+			FROM watch_history w
+				INNER JOIN opus o ON w.opus_no = o.opus_no
+				INNER JOIN episode e ON e.epi_seq = w.epi_seq
+				LEFT JOIN opus_history h ON h.h_idx =
+				(
+					SELECT h_idx FROM opus_history h2
+					WHERE mem_no = #{mem_no} AND cancel_yn = 'N' AND epi_seq = w.epi_seq
+					ORDER BY
+				(	CASE
+				WHEN use_cash > 0 AND rant_yn = 'N' THEN 1
+				ELSE 2
+				END
+			), use_date DESC
+			LIMIT 1
+			)
+			WHERE w.mem_no = #{mem_no} AND w.show_yn = 'Y'
+		<choose>
+			<when test='order == "R"'>
+				ORDER BY last_watch_date DESC
+			</when>
+			<when test='order == "M"'>
+				ORDER BY w_cnt DESC
+			</when>
+		</choose>
+			LIMIT #{start}, #{num}
+		) rst
+	</select>
+
+	<select id="selectWatchHistoryBySeq" parameterType="int" resultType="storybird.vo.WatchHistoryVo">
+		SELECT * FROM watch_history WHERE watch_seq = #{seq} AND show_yn = 'Y'
+	</select>
+
+	<select id="countWatchHistoryByMemNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM watch_history
+		WHERE mem_no = #{mem_no} AND show_yn = 'Y'
+	</select>
+
+	<select id="checkWatchHistory" parameterType="hashMap" resultType="boolean">
+		SELECT IF(COUNT(*) > 0 ,1, 0) FROM watch_history
+		WHERE mem_no = #{mem_no} AND opus_no = #{opus_no} AND #{epi_seq}
+	</select>
+
+	<insert id="insertWatchHistory" parameterType="storybird.vo.WatchHistoryVo">
+		INSERT INTO watch_history(opus_no, mem_no, epi_seq, w_cnt, last_watch_date)
+		VALUES(#{opus_no}, #{mem_no}, #{epi_seq}, 1, now())
+	</insert>
+
+	<update id="updateWatchHistoryCntByMemNo" parameterType="int">
+		UPDATE watch_history SET
+			w_cnt = w_cnt + 1,
+			show_yn = 'Y',
+			last_watch_date = now()
+		WHERE opus_no = #{opus_no} AND epi_seq = #{epi_seq} AND mem_no = #{mem_no}
+	</update>
+
+	<update id="updateWatchHistoryDelStateBySeq" parameterType="hashMap">
+		UPDATE watch_history SET
+			show_yn = 'N'
+		WHERE watch_seq = #{seq} AND mem_no = #{mem_no}
+	</update>
+
+	<delete id="deleteWatchHistoryListBySeq" parameterType="int">
+		DELETE FROM watch_history
+		WHERE watch_seq = #{seq}
+	</delete>
+</mapper>

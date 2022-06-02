@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.FavoriteDAO">
+    <select id="selectFavOpusListByMemNo" parameterType="hashMap" resultType="storybird.vo.join.MyPageOpusInfoVo">
+        SELECT fav_seq, o.opus_no,o.opus_title, o.opus_code, o.thumb_path, o.lang_code lang,
+        fn_author_no_to_name(o.author_no,',') author_name, o.exposure_author, exposure_voice_actor, o.exposure_company, oc.genre,
+        (SELECT MAX(reg_date) FROM episode WHERE opus_no = f.opus_no) last_epi_date
+        FROM favorite_opus f
+        INNER JOIN opus o ON f.opus_no = o.opus_no
+        INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+        WHERE mem_no = #{no}
+        ORDER BY f.reg_date DESC
+        LIMIT #{start}, #{num}
+    </select>
+
+    <select id="countFavOpusListByMemNo" parameterType="int" resultType="int">
+        SELECT COUNT(*)
+        FROM favorite_opus f
+        INNER JOIN opus o
+        ON f.opus_no = o.opus_no
+        WHERE mem_no = #{no}
+    </select>
+
+    <select id="selectAllFavByMemNo" parameterType="hashMap" resultType="storybird.vo.FavoriteVo">
+        SELECT *,a.opus_no,a.mem_no,
+               (select count(*) from episode where opus_no=a.opus_no) as epi_cnt
+        FROM favorite_opus as a
+                 inner join opus as b on a.opus_no = b.opus_no
+        WHERE a.mem_no = #{mem_no}
+        ORDER BY a.fav_seq DESC
+        LIMIT #{start}, #{num}
+    </select>
+    <select id="countFavSelect" parameterType="hashMap" resultType="int">
+        SELECT count(*) FROM favorite_opus as a
+                        inner join opus as b on a.opus_no = b.opus_no
+        WHERE a.mem_no = #{mem_no}
+    </select>
+    <select id="FavSelect" parameterType="hashMap" resultType="boolean">
+        SELECT IF(COUNT(*)>=1 ,1 ,0) FROM favorite_opus
+        WHERE opus_no=#{opus_no} AND mem_no = #{mem_no}
+    </select>
+    <insert id="insertOpusFavorite" parameterType="hashMap">
+        INSERT INTO favorite_opus(opus_no,mem_no,reg_date)
+            VALUE (#{opus_no},#{mem_no},now())
+    </insert>
+    <delete id="deleteOpusFavorite" parameterType="hashMap">
+        DELETE FROM favorite_opus WHERE opus_no=#{opus_no} and mem_no=#{mem_no}
+    </delete>
+
+    <delete id="deleteOpusFavoriteBySeq" parameterType="int">
+        DELETE FROM favorite_opus WHERE fav_seq = #{seq}
+    </delete>
+</mapper>

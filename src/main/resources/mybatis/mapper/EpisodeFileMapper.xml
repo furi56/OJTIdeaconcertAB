@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.EpisodeFileDAO">
+	
+	<select id="selectEpisodeFileByEpiSeq" parameterType="int" resultType="storybird.vo.EpisodeFileVo">
+		SELECT * FROM episode_file
+		WHERE epi_seq = #{epi_seq} AND del_yn = 'N'
+		ORDER BY `order`
+	</select>
+	
+	<select id="selectEpisodeFilePathByEpiSeq" parameterType="int" resultType="string">
+		SELECT file_path FROM episode_file
+		WHERE epi_seq = #{epi_seq} AND del_yn = 'N'
+		ORDER BY `order`
+	</select>
+	
+	<select id="selectEpisodeFilePathByFileNo" parameterType="int" resultType="string">
+		SELECT file_path FROM episode_file
+		WHERE file_no = #{file_no} AND del_yn = 'N'
+	</select>
+	
+	<select id="countEpisodeFileByEpiSeq" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM episode_file
+		WHERE epi_seq = #{epi_seq} AND file_call_type = #{call_type} AND del_yn = 'N'
+	</select>
+	
+	<update id="sortEpisodeOrder" parameterType="hashMap">
+	UPDATE episode_file as a,
+		(SELECT episode_file.*, @ROWNUM := @ROWNUM + 1 AS ROWNUM
+		FROM episode_file,(SELECT @ROWNUM:=0) as r1
+		WHERE epi_seq = #{epi_seq} AND del_yn = 'N' AND file_call_type = #{call_type}
+		ORDER BY `order`) as r
+	SET a.`order` = r.ROWNUM
+	WHERE a.file_no = r.file_no and a.epi_seq = r.epi_seq AND a.del_yn = 'N' AND a.file_call_type = r.file_call_type
+	</update>
+
+	<insert id="insertEpisodeFile" parameterType="storybird.vo.EpisodeFileVo">
+		INSERT INTO episode_file(file_name, file_path, file_size, file_type, file_call_type, file_duration, `order`, epi_seq, opus_no)
+		VALUES(#{file_name}, #{file_path}, #{file_size}, #{file_type}, #{file_call_type}, #{file_duration}, #{order}, #{epi_seq}, #{opus_no})
+	</insert>
+
+
+	<update id="updateEpisodeFileDeleteStateByEpiSeq" parameterType="int">
+		UPDATE episode_file SET
+		del_yn = 'Y'
+		WHERE epi_seq = #{epi_seq} AND file_call_type = 'E'
+	</update>
+
+	<update id="updateEpisodeFileDeleteStateByFileNo" parameterType="int">
+		UPDATE episode_file SET
+		del_yn = 'Y'
+		WHERE file_no = #{file_no}
+	</update>
+
+	<delete id="deleteEpisodeFileByEpiSeq" parameterType="int">
+		DELETE FROM episode_file
+		WHERE epi_seq = #{epi_seq}
+	</delete>
+	
+	<delete id="deleteEpisodeFileByFileNo" parameterType="int">
+		DELETE FROM episode_file
+		WHERE file_no = #{file_no}
+	</delete>
+</mapper>

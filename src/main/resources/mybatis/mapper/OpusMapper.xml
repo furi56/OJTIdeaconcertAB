@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.OpusDAO">
+	<select id="selectAllOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.lang_code lang, service_state,
+		fn_author_no_to_name(o.author_no,',') author_name, per_yn, open_yn, o.exposure_author, o.exposure_company,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt,
+		(SELECT IF(COUNT(*) > 0,'Y','N') FROM pm_event WHERE evt_type = 1 AND DATE(end_date) >= DATE(NOW()) AND opus_no = o.opus_no) AS evt_yn,
+		IF(o.reg_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND o.reg_date <= DATE(NOW()),'Y','N') new_yn,
+		t.epi_total, c.company_name FROM opus o
+		LEFT JOIN(
+		SELECT opus_no, count(*) as epi_total FROM episode WHERE del_yn = 'N' GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		LEFT JOIN partner_company c
+		ON o.company_code = c.partner_code
+		INNER JOIN opus_contract oc
+		ON o.cont_no = oc.o_no
+		WHERE o.del_yn = 'N' AND oc.opus_kind LIKE '%${category}%' AND oc.genre LIKE '%${genre}%'
+		AND service_state LIKE '%${service_state}%'
+		]]>
+		<choose>
+			<when test="day == '-1'">
+				AND oc.irregular_yn = 'Y'
+			</when>
+			<otherwise>
+				AND oc.day_week LIKE '%${day}%'
+			</otherwise>
+		</choose>
+		AND oc.comp_yn LIKE '%${comp}%' AND
+		(opus_code LIKE concat('%', #{search}, '%') OR opus_title LIKE concat('%', #{search}, '%')
+		OR fn_author_no_to_name(o.author_no,',') LIKE concat('%', #{search}, '%'))
+		AND o.lang_code = 'KO'
+		ORDER BY o.reg_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectMainSearchOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.lang_code lang, o.hash_tag,
+		fn_author_no_to_name(o.author_no,',') author_name, o.exposure_author, o.exposure_company,
+		o.exposure_voice_actor,
+		fn_author_no_to_name(o.voice_actor_no,',') voice_name,
+		IF(o.reg_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND o.reg_date <= DATE(NOW()),'Y','N') new_yn,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt
+		FROM opus o
+		INNER JOIN opus_contract oc
+		ON o.cont_no = oc.o_no
+		WHERE (opus_title LIKE concat('%', #{search}, '%') OR fn_author_no_to_name(author_no,',') LIKE concat('%', #{search}, '%'))
+		AND hash_tag LIKE '%${tag}%'
+		]]>
+		<if test="genre != 'ALL' ">
+			AND oc.genre LIKE '%${genre}%'
+		</if>
+		AND o.del_yn = 'N'
+		AND o.service_state = 'P'
+		ORDER BY o.reg_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectMainSearchGenreCount" parameterType="hashMap" resultType="hashMap">
+		SELECT oc.genre, COUNT(*) as count FROM opus o
+		INNER JOIN opus_contract oc
+		ON o.cont_no = oc.o_no
+		WHERE (opus_title LIKE concat('%', #{search}, '%') OR fn_author_no_to_name(author_no,',') LIKE concat('%', #{search}, '%'))
+		AND hash_tag LIKE '%${tag}%'
+		AND o.del_yn = 'N'
+		AND o.service_state = 'P'
+		GROUP BY oc.genre
+	</select>
+
+	<select id="selectOpusByNo" parameterType="int" resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path, oc.vou_free_yn, service_state,
+		o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.voice_actor_no, o.company_code, o.exposure_author, o.exposure_company,
+		o.exposure_voice_actor, fn_author_no_to_name(o.author_no,',') author_name, fn_author_no_to_name(o.voice_actor_no,',') voice_name, o.per_yn,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		(SELECT COUNT(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score_cnt,
+		(SELECT COUNT(*) FROM opus_history ch WHERE ch.opus_no = o.opus_no) AS view_cnt,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt,
+		(SELECT IF(COUNT(*) > 0,'Y','N') FROM pm_event WHERE evt_type = 1 AND DATE(end_date) >= DATE(NOW()) AND opus_no = o.opus_no) AS evt_yn,
+		(SELECT SUM(file_duration) FROM episode_file WHERE opus_no = o.opus_no AND del_yn = 'N') AS duration_total,
+		IF(o.reg_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND o.reg_date <= DATE(NOW()),'Y','N') new_yn,
+		t.epi_total, c.company_name FROM opus o
+		LEFT JOIN(
+		SELECT opus_no, count(*) as epi_total FROM episode WHERE del_yn = 'N' GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		LEFT JOIN partner_company c
+		ON o.company_code = c.partner_code
+		LEFT JOIN opus_contract oc
+		ON o.cont_no = oc.o_no
+		WHERE o.del_yn = 'N' AND o.opus_no = #{opus_no}
+		]]>
+	</select>
+
+	<select id="selectLangCodeOpusListByNo" parameterType="int" resultType="storybird.vo.OpusVo">
+		SELECT lang_code, opus_no FROM opus o2
+		INNER JOIN
+		(SELECT cont_no FROM opus o1
+		WHERE opus_no = #{no}) a
+		ON o2.cont_no = a.cont_no
+		WHERE del_yn = 'N'
+	</select>
+
+	<select id="selectOpusStatis" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT a.opus_title,a.opus_count,a.product_price, a.rent_price,
+		  (SELECT COUNT(*) FROM opus_history AS c WHERE c.cancel_yn='N' AND c.opus_no=a.opus_no
+			<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+				AND Date(use_date) BETWEEN #{start_date} AND #{end_date}
+			</if>
+		    ) as opus_cnt,
+			(SELECT sum(use_cash) FROM opus_history AS c WHERE c.cancel_yn='N' AND c.opus_no=a.opus_no) as total,
+			(SELECT sum(use_cash) FROM opus_history AS c WHERE c.cancel_yn='N' AND c.opus_no=a.opus_no
+			<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+				AND Date(use_date) BETWEEN #{start_date} AND #{end_date}
+			</if>
+			)
+		    AS total_cash, DENSE_RANK() over(ORDER BY sum(b.use_cash) DESC) AS ranking
+		FROM opus AS a
+		LEFT JOIN opus_history  AS b  ON b.opus_no = a.opus_no
+		where del_yn = 'N' AND service_state='P'
+		<if test="kind != '' ">
+			and opus_kind= #{kind}
+		</if>
+		GROUP BY a.opus_no ORDER BY ranking asc,a.opus_no ASC
+		LIMIT #{start}, #{num}
+	</select>
+	<select id="countOpusStatis"  resultType="int">
+		SELECT COUNT(*)
+		FROM opus
+		where del_yn = 'N' AND service_state='P'
+		<if test="kind != '' ">
+			and opus_kind= #{kind}
+		</if>
+	</select>
+
+	<select id="selectOpusByLangCode" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT o.*, author_no, fn_author_no_to_name(author_no,',') AS author_name, company_name
+		FROM opus o
+		LEFT JOIN partner_company c
+		ON o.company_code = c.partner_code
+		WHERE o.del_yn = 'N' AND o.cont_no = #{cont_no} AND o.lang_code = #{lang_code}
+	</select>
+
+	<select id="searchOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT o.opus_no, o.opus_title, o.opus_code, c.rent_price, c.product_price, c.opus_kind, o.lang_code,
+		fn_author_no_to_name(o.author_no,',') author_name, o.exposure_author, o.exposure_company, t.epi_total
+		FROM opus o
+		LEFT JOIN(SELECT opus_no, count(*) as epi_total FROM episode WHERE del_yn = 'N' GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE opus_title LIKE concat('%', #{search}, '%') AND o.del_yn = 'N' AND per_yn = 'Y'
+		AND o.service_state LIKE '%${service_state}%'
+		<if test="epi_filter">
+			AND t.epi_total IS NOT NULL
+		</if>
+		LIMIT #{start}, #{num}
+	</select>
+	<select id="searchOpusCompany" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus
+		WHERE company_code = #{company_code}  AND opus_title LIKE concat('%', #{search}, '%') AND del_yn = 'N'
+			LIMIT #{start}, #{num}
+	</select>
+	<select id="timeOpus"  resultType="storybird.vo.OpusVo">
+		SELECT
+		(SELECT count(opus_no) AS cnt FROM opus_history AS b  WHERE b.opus_no=a.opus_no) AS cnt,
+		a.*
+		FROM opus AS a
+		INNER JOIN opus_contract c ON a.cont_no = c.o_no
+		where service_state='P' AND a.del_yn = 'N'
+		AND c.opus_kind LIKE '%${kind}%'
+		ORDER BY cnt DESC, opus_no ASC LIMIT 5
+	</select>
+
+	<select id="realTimeRankingOpus" parameterType="hashMap"  resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT IFNULL(aaa.cnt,0) as view_cnt,
+			(SELECT count(opus_no) AS cnt FROM favorite_opus AS b WHERE b.opus_no=o.opus_no
+				AND TIMESTAMP(reg_date) < #{standard_date}) AS fav_cnt,
+			ROW_NUMBER() over(ORDER BY IFNULL(ranking, ${total})) as ranking,
+			ROW_NUMBER() over(ORDER BY IFNULL(pre_ranking, ${total})) pre_ranking,
+			o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+			o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+			exposure_author, exposure_voice_actor,
+			fn_author_no_to_name(o.author_no,',') author_name,
+			fn_author_no_to_name(o.voice_actor_no,',') voice_name
+		FROM opus AS o
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		LEFT JOIN
+			(SELECT opus_no, @rownum := @rownum + 1 as ranking, cnt
+		FROM (
+			SELECT opus_no, COUNT(*) cnt FROM opus_history,
+			(SELECT @rownum := 0) r1
+			WHERE TIMESTAMP(use_date) < #{standard_date}
+			GROUP BY opus_no
+			) c1
+			ORDER BY cnt DESC, opus_no) aaa
+			ON aaa.opus_no = o.opus_no
+		LEFT JOIN
+			(SELECT opus_no, @rownum2 := @rownum2 + 1 as pre_ranking, cnt
+			FROM (
+				SELECT opus_no, COUNT(*) cnt FROM opus_history,
+				(SELECT @rownum2 := 0) r1
+				WHERE TIMESTAMP(use_date) < DATE_SUB(#{standard_date}, INTERVAL 30 MINUTE)
+				GROUP BY opus_no
+			) c2
+			ORDER BY cnt DESC, opus_no) bbb
+		ON bbb.opus_no = o.opus_no
+		WHERE service_state='P' AND o.del_yn = 'N'
+		AND oc.opus_kind LIKE '%${kind}%'
+		]]>
+		<if test="genre != 'ALL' ">
+			and oc.genre = #{genre}
+		</if>
+		ORDER BY ranking LIMIT #{start}, #{num}
+	</select>
+
+	<select id="dateRankingOpus" parameterType="hashMap"  resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT
+			IFNULL(cnt,0) view_cnt,
+			(SELECT count(opus_no) AS cnt FROM favorite_opus AS b
+			WHERE b.opus_no=o.opus_no
+			AND DATE(reg_date) < NOW()) AS fav_cnt,
+			ROW_NUMBER() over(ORDER BY IFNULL(ranking, ${total})) as ranking,
+			ROW_NUMBER() over(ORDER BY IFNULL(pre_ranking, ${total})) pre_ranking,
+			o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+			o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+			exposure_author, exposure_voice_actor,
+			fn_author_no_to_name(o.author_no,',') author_name,
+			fn_author_no_to_name(o.voice_actor_no,',') voice_name
+			FROM opus AS o
+			INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+			LEFT JOIN
+			(SELECT opus_no, @rownum := @rownum + 1 as ranking, cnt
+			FROM (
+				SELECT opus_no, COUNT(*) cnt FROM opus_history,
+				(SELECT @rownum := 0) r1
+				WHERE DATE(use_date) <= NOW()
+				AND DATE(use_date) > DATE(DATE_SUB(NOW(), INTERVAL ${dayNum} ${dateType}))
+				GROUP BY opus_no
+			) c2
+			ORDER BY cnt DESC, opus_no) aaa
+		ON aaa.opus_no = o.opus_no
+		LEFT JOIN
+		(SELECT opus_no, @rownum2 := @rownum2 + 1 as pre_ranking, pre_cnt
+			FROM (
+				SELECT opus_no, COUNT(*) pre_cnt FROM opus_history,
+				(SELECT @rownum2 := 0) r1
+				WHERE DATE(use_date) <= DATE(DATE_SUB(NOW(), INTERVAL ${dayNum} ${dateType}))
+				AND DATE(use_date) > DATE(DATE_SUB(NOW(), INTERVAL ${dayNum}*2 ${dateType}))
+				GROUP BY opus_no
+			) c2
+			ORDER BY pre_cnt DESC, opus_no) bbb
+		ON bbb.opus_no = o.opus_no
+		WHERE service_state='P' AND o.del_yn = 'N'
+		AND oc.opus_kind LIKE '%${kind}%'
+		]]>
+		<if test="genre != 'ALL' ">
+			and oc.genre = #{genre}
+		</if>
+		ORDER BY cnt DESC, opus_no LIMIT #{start}, #{num}
+
+	</select>
+	<select id="weekOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+		o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+		fn_author_no_to_name(o.author_no,',') author_name,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		t.epi_total, c.company_name FROM opus o
+		LEFT JOIN(SELECT opus_no, count(*) as epi_total FROM episode GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		LEFT JOIN partner_company c ON o.company_code = c.partner_code
+		LEFT JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE service_state='P' and oc.day_week LIKE '%${week}%' AND o.del_yn = 'N'
+		<choose>
+			<when test="order == 'score'">
+				ORDER BY star_score DESC
+			</when>
+			<when test="order == 'latest'">
+				ORDER BY start_date DESC
+			</when>
+			<when test="order == 'view'">
+				ORDER BY epi_total DESC
+			</when>
+			<otherwise>
+				ORDER BY opus_no DESC
+			</otherwise>
+		</choose>
+		LIMIT #{start}, #{num}
+	</select>
+	<select id="compOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE service_state='P' AND o.comp_yn = 'Y' AND o.del_yn = 'N'
+		AND c.opus_kind LIKE '%${kind}%'
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="countCompOpus" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE service_state='P' AND o.comp_yn = 'Y' AND o.del_yn = 'N'
+		AND c.opus_kind LIKE '%${kind}'
+	</select>
+
+	<select id="weekAllOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+		o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+		fn_author_no_to_name(o.author_no,',') author_name, opus_count,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		t.epi_total, c.company_name FROM opus o
+		LEFT JOIN(SELECT opus_no, count(*) as epi_total FROM episode GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		LEFT JOIN partner_company c ON o.company_code = c.partner_code
+		LEFT JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE service_state='P' and oc.day_week LIKE '%${week}%' AND o.del_yn = 'N'
+		AND oc.opus_kind LIKE '%${kind}%'
+		<choose>
+			<when test="order == 'score'">
+				ORDER BY star_score DESC
+			</when>
+			<when test="order == 'latest'">
+				ORDER BY start_date DESC
+			</when>
+			<when test="order == 'view'">
+				ORDER BY opus_count DESC
+			</when>
+			<otherwise>
+				ORDER BY opus_no DESC
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="countGenreOpus" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		LEFT JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE service_state='P' AND o.del_yn = 'N'
+		AND oc.opus_kind LIKE '%${kind}%'
+		<if test="genre != 'ALL' ">
+			AND oc.genre LIKE '%${genre}%'
+		</if>
+	</select>
+
+	<select id="selectGenreOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+		o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+		fn_author_no_to_name(o.author_no,',') author_name, o.exposure_author, o.exposure_company, exposure_voice_actor,
+		fn_author_no_to_name(o.voice_actor_no,',') voice_name, opus_count,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		(SELECT COUNT(*) FROM opus_history ch WHERE ch.opus_no = o.opus_no) AS view_cnt,
+		(SELECT IF(COUNT(*) > 0,'Y','N') FROM pm_event WHERE evt_type = 1 AND status_yn = 'Y'
+		AND DATE(end_date) >= DATE(NOW()) AND opus_no = o.opus_no) AS evt_yn,
+		IF(o.reg_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND o.reg_date <= DATE(NOW()),'Y','N') new_yn,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt,
+		t.epi_total, c.company_name FROM opus o
+		LEFT JOIN(SELECT opus_no, count(*) as epi_total FROM episode GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		LEFT JOIN partner_company c ON o.company_code = c.partner_code
+		LEFT JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE service_state='P' AND o.del_yn = 'N'
+		AND oc.opus_kind LIKE '%${kind}%'
+		]]>
+		<if test="genre != 'ALL' ">
+			AND oc.genre LIKE '%${genre}%'
+		</if>
+		<choose>
+			<when test="order == 'score'">
+				ORDER BY star_score DESC
+			</when>
+			<when test="order == 'latest'">
+				ORDER BY start_date DESC
+			</when>
+			<when test="order == 'view'">
+				ORDER BY opus_count DESC
+			</when>
+			<otherwise>
+				ORDER BY opus_no DESC
+			</otherwise>
+		</choose>
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="compAllOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT o.opus_no, c.*,o.opus_title, o.opus_code, o.thumb_path, o.lang_code lang,
+		fn_author_no_to_name(o.author_no,',') author_name, o.exposure_author, o.exposure_company,
+		per_yn, service_state FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE  service_state='P' and  c.comp_yn = 'Y' AND o.del_yn = 'N'
+		AND c.opus_kind LIKE '%${kind}%'
+		order by opus_no desc
+	</select>
+	<select id="genreOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus
+		WHERE  service_state='P' and reg_date >=date_add(now(),interval-1 month) AND del_yn = 'N'
+		<if test="genre != 'ALL' ">
+			and genre= #{genre}
+		</if>
+		LIMIT 12
+	</select>
+	<select id="genreAllOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus
+		WHERE  service_state='P' and reg_date >=date_add(now(),interval-1 month) AND del_yn = 'N'
+		<if test="genre != 'ALL' ">
+			and genre= #{genre}
+		</if>
+		ORDER BY opus_no DESC
+	</select>
+	<select id="genreNewOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus
+		WHERE  service_state='P' and reg_date= #{new_date} AND del_yn = 'N'
+		<if test="genre != 'ALL' ">
+			and genre= #{genre}
+		</if>
+		ORDER BY opus_no DESC
+	</select>
+	<select id="genreAllbydayOpus" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus
+		WHERE  service_state='P' AND del_yn = 'N'
+		<if test="genre != 'ALL' ">
+			and genre= #{genre}
+		</if>
+		LIMIT 12
+	</select>
+
+	<select id="countOpus" resultType="int">
+		SELECT count(*) FROM opus WHERE del_yn = 'N'
+	</select>
+
+	<select id="countOpusByLangCode" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM opus o
+		LEFT JOIN partner_company c
+		ON o.company_code = c.partner_code
+		WHERE o.del_yn = 'N' AND o.cont_no = #{cont_no} AND o.lang_code = #{lang_code}
+	</select>
+
+	<select id="countMainSearchOpus" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE (opus_title LIKE concat('%', #{search}, '%') OR fn_author_no_to_name(author_no,',') LIKE concat('%', #{search}, '%'))
+		AND hash_tag LIKE '%${tag}%'
+		<if test="genre != 'ALL' ">
+		AND oc.genre LIKE '%${genre}%'
+		</if>
+		AND o.del_yn = 'N'
+		AND o.service_state = 'P'
+	</select>
+
+	<select id="countDetailSerachOpus" parameterType="hashmap" resultType="int">
+		SELECT count(*) FROM opus
+		WHERE opus_kind LIKE '%${category}%' AND genre LIKE '%${genre}%'
+		AND service_state LIKE '%${service_state}%'
+		<choose>
+			<when test="day == '-1'">
+				AND irregular_yn = 'Y'
+			</when>
+			<otherwise>
+				AND day_week LIKE '%${day}%'
+			</otherwise>
+		</choose>
+		AND del_yn = 'N'
+		AND comp_yn LIKE '%${comp}%' AND
+		(opus_code LIKE concat('%', #{search}, '%') OR opus_title LIKE concat('%', #{search}, '%')
+		OR fn_author_no_to_name(author_no,',') LIKE concat('%', #{search}, '%'))
+		AND lang_code = 'KO'
+	</select>
+
+	<select id="countSearchOpus" parameterType="hashMap" resultType="int">
+		SELECT count(*) FROM opus o
+		LEFT JOIN(SELECT opus_no, count(*) as epi_total FROM episode WHERE del_yn = 'N' GROUP BY opus_no) t
+		ON o.opus_no = t.opus_no
+		WHERE opus_title LIKE concat('%', #{search}, '%') AND del_yn = 'N' AND per_yn = 'Y'
+		AND service_state LIKE '%${service_state}%'
+		<if test="epi_filter">
+			AND t.epi_total IS NOT NULL
+		</if>
+	</select>
+	<select id="countSearchOpusCompany" parameterType="string" resultType="int">
+		SELECT count(*) FROM opus
+		WHERE company_code = #{company_code} AND opus_title LIKE concat('%', #{search}, '%') AND del_yn = 'N'
+	</select>
+
+	<select id="selectMaxOpusNo" resultType="int">
+		SELECT IFNULL(MAX(opus_no),0) FROM opus WHERE del_yn = 'N'
+	</select>
+
+	<select id="selectNewOpusInMonthList" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT DATE(c.start_date) AS format_date, o.* FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE DATE(c.start_date) BETWEEN DATE_SUB(NOW(), INTERVAL 1 MONTH) AND DATE(NOW())
+		<if test="genre != 'ALL' ">
+			and c.genre= #{genre}
+		</if>
+		AND opus_kind = #{kind}
+		AND del_yn = 'N' AND service_state = 'P'
+		ORDER BY c.start_date DESC
+	</select>
+
+	<select id="countTempSelectNewOpusInMonthList" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE DATE(o.reg_date) BETWEEN DATE_SUB(NOW(), INTERVAL 1 MONTH)
+		AND DATE(NOW())
+		AND c.opus_kind = #{kind}
+		AND o.del_yn = 'N' AND service_state = 'P'
+		<if test="genre != 'ALL' ">
+			and c.genre= #{genre}
+		</if>
+	</select>
+
+	<select id="tempSelectNewOpusInMonthList" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT DATE(o.reg_date) AS format_date, o.*,
+		fn_author_no_to_name(o.author_no,',') author_name,
+		fn_author_no_to_name(o.voice_actor_no,',') voice_name,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt
+		FROM opus o
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE DATE(o.reg_date) BETWEEN DATE_SUB(NOW(), INTERVAL 1 MONTH)
+		AND DATE(NOW())
+		<if test="genre != 'ALL' ">
+			and c.genre= #{genre}
+		</if>
+		AND c.opus_kind = #{kind}
+		AND o.del_yn = 'N' AND service_state = 'P'
+		ORDER BY c.reg_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectOpusByNoList" parameterType="list" resultType="storybird.vo.OpusVo">
+		SELECT * FROM opus WHERE opus_no IN
+		<foreach item="no" collection="list" open="(" separator="," close=")">
+			#{no}
+		</foreach>
+	</select>
+
+	<select id="countNotPermissionOpus" resultType="int">
+		SELECT COUNT(*) FROM opus WHERE per_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="countPartnerOpusCompStatusByAccountNo" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		INNER JOIN partner_company p
+		ON o.company_code = p.partner_code
+		INNER JOIN `account` a
+		ON p.partner_no = a.partner_no
+		WHERE a.ac_no = #{no} AND o.comp_yn = #{comp_yn} AND o.del_yn = 'N'
+	</select>
+
+	<select id="countAuthorOpusCompStatusByAccountNo" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		INNER JOIN author au
+		ON o.author_no = au.author_no OR o.voice_actor_no = au.author_no
+		INNER JOIN `account` a
+		ON au.author_no = a.author_no
+		WHERE a.ac_no = #{no} AND o.comp_yn = #{comp_yn} AND o.del_yn = 'N'
+	</select>
+
+	<select id="selectAuthorOpusByAccountNo" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		SELECT *, (SELECT count(*) FROM episode temp WHERE temp.opus_no = o.opus_no) as epi_total FROM opus o
+		INNER JOIN author au
+		ON o.author_no = au.author_no OR o.voice_actor_no = au.author_no
+		INNER JOIN `account` a
+		ON au.author_no = a.author_no
+		WHERE a.ac_no = #{no} AND o.del_yn = 'N'
+		ORDER BY o.reg_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<insert id="insertOpus" parameterType="storybird.vo.OpusVo">
+		<selectKey order="BEFORE" keyProperty="next_code" resultType="int">
+			SELECT IFNULL(MAX(RIGHT(opus_code,5))+1,1) as next_code FROM opus
+			WHERE opus_kind = #{opus_kind} AND genre = #{genre}
+		</selectKey>
+
+		INSERT INTO opus(cont_no, opus_code, day_week, opus_title, opus_kind, genre,
+		author_no, exposure_author, exposure_company, company_code, start_date, end_date, age_limit,
+		hash_tag, story_intro, open_yn, vou_free_yn, comp_yn,
+		irregular_yn, opus_cycle, rent_price, product_price, thumb_origin, thumb_path,
+		thumb_vert_origin, thumb_vert_path, nation_code, lang_code, reg_date)
+		VALUES(#{cont_no}, fn_code_make(CONCAT(#{opus_kind},#{genre}),9,#{next_code}),
+		#{day_week},#{opus_title}, #{opus_kind}, #{genre}, #{author_no}, #{exposure_author}, #{exposure_company},
+		#{company_code}, #{start_date}, #{end_date}, #{age_limit}, #{hash_tag},
+		#{story_intro}, 'N', #{vou_free_yn}, #{comp_yn},
+		#{irregular_yn}, #{opus_cycle}, #{rent_price}, #{product_price}, #{thumb_origin},
+		#{thumb_path}, #{thumb_vert_origin}, #{thumb_vert_path},
+		#{nation_code}, #{lang_code}, now())
+	</insert>
+
+
+	<update id="updateOpusByNo" parameterType="storybird.vo.OpusVo">
+		<![CDATA[
+		UPDATE opus SET
+		cont_no = IFNULL(#{cont_no}, cont_no),
+		opus_title = IFNULL(#{opus_title}, opus_title),
+		author_no = IFNULL(#{author_no}, author_no),
+		company_code = IFNULL(#{company_code}, company_code),
+		voice_actor_no = IFNULL(#{voice_actor_no}, voice_actor_no),
+		hash_tag = IFNULL(#{hash_tag}, hash_tag),
+		story_intro = IFNULL(#{story_intro}, story_intro),
+		thumb_origin = IFNULL(#{thumb_origin}, thumb_origin),
+		thumb_vert_origin = IFNULL(#{thumb_vert_origin}, thumb_vert_origin),
+		thumb_path = IFNULL(#{thumb_path}, thumb_path),
+		thumb_vert_path = IFNULL(#{thumb_vert_path}, thumb_vert_path),
+		exposure_author = IFNULL(#{exposure_author}, exposure_author),
+		exposure_company = IFNULL(#{exposure_company}, exposure_company),
+		exposure_voice_actor = IFNULL(#{exposure_voice_actor}, exposure_voice_actor)
+		WHERE opus_no = #{opus_no}
+		]]>
+	</update>
+
+	<update id="updateOpusByNoAndLang" parameterType="storybird.vo.OpusVo">
+		UPDATE opus SET
+		opus_title = IFNULL(#{opus_title}, opus_title),
+		author_no = IFNULL(#{author_no}, author_no),
+		exposure_author = IFNULL(#{exposure_author}, exposure_author),
+		voice_actor_no = IFNULL(#{voice_actor_no}, voice_actor_no),
+		exposure_voice_actor = IFNULL(#{exposure_voice_actor}, exposure_voice_actor),
+		exposure_company = IFNULL(#{exposure_company}, exposure_company),
+		company_code = IFNULL(#{company_code}, company_code),
+		hash_tag = IFNULL(#{hash_tag}, hash_tag),
+		story_intro = IFNULL(#{story_intro}, story_intro),
+		thumb_origin = IFNULL(#{thumb_origin}, thumb_origin),
+		thumb_vert_origin = IFNULL(#{thumb_vert_origin}, thumb_vert_origin),
+		thumb_path = IFNULL(#{thumb_path}, thumb_path),
+		thumb_vert_path = IFNULL(#{thumb_vert_path}, thumb_vert_path)
+		WHERE cont_no = #{cont_no} AND lang_code = #{lang_code} AND del_yn = 'N'
+	</update>
+
+	<!--삭제 예정-->
+	<update id="updateOpusOpenByNo" parameterType="int">
+		UPDATE opus SET
+		open_yn = IF(open_yn = 'Y', 'N', 'Y')
+		WHERE opus_no = #{opus_no}
+	</update>
+
+	<update id="updateOpusServiceByNo" parameterType="hashMap">
+		UPDATE opus SET
+		service_state = #{service_state}
+		WHERE opus_no = #{opus_no}
+	</update>
+
+	<update id="updateOpusCompByNo" parameterType="int">
+		UPDATE opus_contract SET
+		comp_yn = IF(comp_yn = 'Y', 'N', 'Y')
+		WHERE o_no = (SELECT cont_no FROM opus WHERE opus_no = #{opus_no})
+	</update>
+
+	<update id="updateOpusPerByNo" parameterType="int">
+		UPDATE opus SET
+		per_yn = IF(per_yn = 'Y', 'N', 'Y')
+		WHERE opus_no = #{opus_no}
+	</update>
+
+	<update id="addOpusCountByNo" parameterType="int">
+		UPDATE opus SET
+		opus_count = opus_count + 1
+		WHERE opus_no = #{opus_no}
+	</update>
+
+	<update id="updateDelStateByNo" parameterType="int">
+		UPDATE opus SET
+		del_yn = 'Y'
+		WHERE opus_no = #{opus_no}
+	</update>
+
+	<delete id="deleteOpusByNo" parameterType="int">
+		DELETE FROM opus
+		WHERE opus_no = #{opus_no}
+	</delete>
+</mapper>

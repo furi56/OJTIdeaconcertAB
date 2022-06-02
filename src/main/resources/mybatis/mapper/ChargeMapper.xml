@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.ChargeDAO">
+	<select id="selectAllChargeItem"  resultType="storybird.vo.ChargeVo">
+		SELECT * FROM sale_item WHERE status_yn='Y'  ORDER BY price ASC
+	</select>
+	<select id="selectChargeItemByNationCode" parameterType="string" resultType="storybird.vo.ChargeVo">
+		SELECT * FROM sale_item
+		WHERE status_yn = 'Y' AND nation_code = #{nation_code} AND del_yn = 'N'
+		ORDER by price ASC
+	</select>
+	<select id="selectOneChargeItem" parameterType="hashMap" resultType="storybird.vo.ChargeVo">
+		SELECT * FROM sale_item WHERE status_yn='Y' and item_code= #{item_code}  ORDER BY price ASC
+	</select>
+</mapper>

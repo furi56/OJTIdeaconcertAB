@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.ChargeHistoryDAO">
+	<select id="selectChargeHistoryBySeq" parameterType="int" resultType="storybird.vo.ChargeHistoryVo">
+		SELECT * FROM charge_history
+		WHERE charge_seq = #{charge_seq}
+	</select>
+
+	<select id="selectAllChargeHistorySum" resultType="int" parameterType="hashMap">
+		SELECT IFNULL(SUM(c.settle_amt),0) from member m
+		INNER JOIN charge_history c
+		ON c.mem_no = m.mem_no
+		WHERE c.buy_state = 'B'
+		AND m.mem_id LIKE concat('%', #{search}, '%')
+		AND settle_method LIKE '%${pay_type}%'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(charge_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="selectAllChargeCashHistorySum" resultType="int" parameterType="hashMap">
+		SELECT IFNULL(SUM(c.charge_cash),0) from member m
+		INNER JOIN charge_history c
+		ON c.mem_no = m.mem_no
+		WHERE c.buy_state = 'B'
+		AND m.mem_id LIKE concat('%', #{search}, '%')
+		AND settle_method LIKE '%${pay_type}%'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(charge_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<!--#-->
+	<select id="selectMemberShipHistoryByMemNo" parameterType="hashMap" resultType="storybird.vo.ChargeHistoryVo">
+		SELECT c.*, DATE_ADD(charge_date, INTERVAL item_month MONTH)use_end_date FROM charge_history c
+			WHERE c.item_type = 'F' AND mem_no = #{mem_no}
+			AND DATE (NOW()) BETWEEN DATE(charge_date) AND DATE_ADD(DATE(charge_date), INTERVAL item_month MONTH)
+			AND buy_state = 'B'
+		ORDER BY charge_date DESC
+		LIMIT 1
+	</select>
+
+	<select id="countPagingMemberShipHistoryByMemNo" parameterType="hashMap" resultType="int">
+		<![CDATA[
+		SELECT COUNT(*) FROM (
+			SELECT c.*,
+				IF(buy_state = 'R', DATE(FROM_UNIXTIME(i.cancelled_at)),
+				DATE(DATE_ADD(charge_date, INTERVAL item_month MONTH))) use_end_date FROM charge_history c
+				LEFT JOIN iamport_payment i ON i.charge_seq = c.charge_seq
+				WHERE c.item_type = 'F' AND mem_no = #{mem_no}
+			ORDER BY charge_date DESC
+		) rst
+		WHERE use_end_date <= DATE(NOW())
+		]]>
+	</select>
+
+	<select id="selectPagingMemberShipHistoryByMemNo" parameterType="hashMap" resultType="storybird.vo.ChargeHistoryVo">
+		<![CDATA[
+		SELECT * FROM (
+			SELECT c.*,
+				IF(buy_state = 'R', DATE(FROM_UNIXTIME(i.cancelled_at)),
+				DATE(DATE_ADD(charge_date, INTERVAL item_month MONTH))) use_end_date FROM charge_history c
+				LEFT JOIN iamport_payment i ON i.charge_seq = c.charge_seq
+				WHERE c.item_type = 'F' AND mem_no = #{mem_no}
+			ORDER BY charge_date DESC
+		) rst
+		WHERE use_end_date <= DATE(NOW())
+		LIMIT #{start}, #{num}
+		]]>
+	</select>
+
+	<select id="selectCancelMemberShipByMemNo" parameterType="hashMap" resultType="storybird.vo.join.CancelChargeHistoryVo">
+		SELECT *, (settle_amt / DATEDIFF(use_end_date,charge_date) * DATEDIFF(NOW(), charge_date)) use_date_amount
+			FROM (
+				SELECT *, DATE_ADD(charge_date, INTERVAL item_month MONTH)use_end_date,
+				(settle_amt * 10 / 100) fee
+				FROM charge_history c
+				WHERE item_type = 'F' AND mem_no = #{mem_no}
+				AND DATE (NOW()) BETWEEN DATE(charge_date) AND DATE_ADD(DATE(charge_date), INTERVAL item_month MONTH)
+				AND buy_state = 'B'
+			ORDER BY charge_date DESC
+			LIMIT 1
+		) rst
+	</select>
+
+	<select id="selectMonthChargeCancelCountByMemNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM charge_history c
+		INNER JOIN iamport_payment i ON c.charge_seq = i.charge_seq
+		WHERE c.buy_state = 'R' AND c.mem_no = #{mem_no}
+		AND DATE_FORMAT(NOW(), '%Y-%m') = DATE_FORMAT(FROM_UNIXTIME(i.cancelled_at), '%Y-%m')
+	</select>
+
+	<select id="selectAllChargeHistoryByMemNo" parameterType="hashMap" resultType="storybird.vo.ChargeHistoryVo">
+		<![CDATA[
+		SELECT *, GREATEST(IF(remain < charge_cash, remain, charge_cash),0) AS remain_cash FROM (
+			SELECT c.item_name, c.settle_amt, c.settle_method, c.charge_cash, c.buy_state, c.nation_code,
+			c.charge_date, c.charge_seq,
+			(SELECT TIMESTAMPDIFF(DAY,DATE_FORMAT(c.charge_date,'%Y-%m-%d'),DATE_FORMAT(NOW(),'%Y-%m-%d'))) AS c_date,
+			(SELECT SUM(charge_cash) FROM charge_history b WHERE mem_no = #{mem_no} AND b.charge_date <= c.charge_date AND buy_state = 'B')
+			- (SELECT SUM(use_cash) FROM opus_history a WHERE mem_no = #{mem_no} AND gift_no IS NULL AND cancel_yn = 'N')
+			AS remain
+		FROM charge_history c
+		WHERE c.mem_no = #{mem_no}
+		]]>
+		<if test="charge_seq > 0">
+			AND c.charge_seq = #{charge_seq}
+		</if>
+		ORDER BY c.charge_date DESC) a
+		LIMIT #{start}, #{num}
+
+	</select>
+
+	<select id="selectAllChargeHistory" parameterType="hashMap" resultType="storybird.vo.ChargeHistoryVo">
+		SELECT *,(SELECT TIMESTAMPDIFF(DAY,DATE_FORMAT(charge_date,'%Y-%m-%d'),DATE_FORMAT(NOW(),'%Y-%m-%d'))) AS c_date FROM charge_history
+		WHERE mem_no = #{mem_no} order by charge_date DESC
+	</select>
+	<select id="selectChargeCashSumByMemNo" parameterType="int" resultType="int">
+		SELECT IFNULL(SUM(charge_cash),0) FROM charge_history 
+		WHERE mem_no = #{mem_no} AND buy_state = 'B'
+	</select>
+
+	<select id="countChargeHistoryByMemNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM charge_history
+		WHERE mem_no = #{mem_no} AND buy_state = 'B'
+	</select>
+	
+	<select id="countSearchChargeHistory" parameterType="hashMap" resultType="int">
+		SELECT count(*) from member m
+		INNER JOIN
+		(SELECT *
+		FROM charge_history c
+		WHERE c.buy_state = 'B') a
+		ON a.mem_no = m.mem_no
+		WHERE m.mem_id LIKE concat('%', #{search}, '%')
+		AND settle_method LIKE '%${pay_type}%'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+		AND DATE(charge_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="countUseCouponByCNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM charge_history
+		WHERE c_no = #{c_no}
+	</select>
+
+	<insert id="insertChargeHistory" parameterType="storybird.vo.ChargeHistoryVo" useGeneratedKeys="true" keyProperty="charge_seq">
+		INSERT INTO charge_history
+		(mem_no, c_no, item_code, item_name, item_type, item_month, settle_amt, settle_method, charge_cash,
+		buy_state, nation_code, charge_date)
+		VALUES(#{mem_no}, #{c_no}, #{item_code}, #{item_name}, #{item_type}, #{item_month}, #{settle_amt}, #{settle_method}, #{charge_cash},
+		#{buy_state}, #{nation_code}, NOW())
+	</insert>
+
+	<update id="updateChargeHistoryAmountByChargeSeq" parameterType="hashMap">
+		UPDATE charge_history SET
+		settle_amt = #{settle_amt}
+		WHERE charge_seq = #{charge_seq}
+	</update>
+
+	<update id="updateChargeBuyStatusByChargeSeq" parameterType="int">
+		UPDATE charge_history SET
+		buy_state = 'R'
+		WHERE charge_seq = #{charge_seq}
+	</update>
+</mapper>

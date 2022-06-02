@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.MemberDAO">
+
+	<select id="selectAllMember" parameterType="hashMap" resultType="storybird.vo.MemberVo">
+		SELECT *,
+		IFNULL((SELECT SUM(settle_amt) FROM charge_history WHERE mem_no = member.mem_no AND buy_state = 'B'),0) AS buy_cash,
+		IFNULL((SELECT COUNT(*) FROM opus_history WHERE mem_no = member.mem_no AND cancel_yn = 'N'),0) AS buy_cnt
+		FROM member
+		WHERE (mem_id LIKE concat('%', #{search}, '%') OR nickname LIKE concat('%', #{search}, '%'))
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND Date(reg_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+		order by mem_no desc
+		LIMIT #{start}, #{num}
+	</select>
+	<select id="selectstatis" parameterType="hashMap" resultType="storybird.vo.MemberVo">
+		SELECT cnt,pccnt,mocnt,slcnt,secnt
+		FROM (SELECT COUNT(mem_no) AS cnt FROM member WHERE  reg_date BETWEEN #{start_date} AND #{end_date}) AS a,
+			 (SELECT COUNT(mem_no) AS pccnt FROM member WHERE  reg_date BETWEEN #{start_date} AND #{end_date} AND join_platform='PC') AS b,
+			 (SELECT COUNT(mem_no) AS mocnt FROM member WHERE  reg_date BETWEEN #{start_date} AND #{end_date} AND join_platform='MOBILE') AS c,
+			 (SELECT COUNT(mem_no) AS slcnt FROM member WHERE  sleep_date BETWEEN #{start_date} AND #{end_date}) AS d,
+			 (SELECT COUNT(mem_no) AS secnt FROM member WHERE  seces_date BETWEEN #{start_date} AND #{end_date}) AS e
+	</select>
+	<select id="selectstatisDate" parameterType="hashMap" resultType="storybird.vo.MemberVo">
+		SELECT cnt,pccnt,mocnt,slcnt,secnt
+		FROM (SELECT COUNT(mem_no) AS cnt FROM member WHERE  Date(reg_date) BETWEEN #{start_date} AND #{end_date}) AS a,
+			 (SELECT COUNT(mem_no) AS pccnt FROM member WHERE Date(reg_date) BETWEEN #{start_date} AND #{end_date} AND join_platform='PC') AS b,
+			 (SELECT COUNT(mem_no) AS mocnt FROM member WHERE  Date(reg_date) BETWEEN #{start_date} AND #{end_date} AND join_platform='MOBILE') AS c,
+			 (SELECT COUNT(mem_no) AS slcnt FROM member WHERE  Date(sleep_date) BETWEEN #{start_date} AND #{end_date}) AS d,
+			 (SELECT COUNT(mem_no) AS secnt FROM member WHERE  Date(seces_date) BETWEEN #{start_date} AND #{end_date}) AS e
+	</select>
+
+	<select id="selectAllUser" resultType="int">
+		select mem_no from member where seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<!--#-->
+	<select id="selectMemberById" parameterType="string" resultType="storybird.vo.MemberVo">
+		SELECT * FROM member WHERE mem_id = #{mem_id} AND user_type LIKE '%${user_type}%'
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+	<!--#-->
+	<select id="selectSNSMemberById" parameterType="string" resultType="storybird.vo.MemberVo">
+		SELECT * FROM member WHERE sns_id = #{sns_id} AND user_type = #{user_type}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="selectMemberByNo" parameterType="int" resultType="storybird.vo.MemberVo">
+		SELECT *,
+		       (select count(*) from opus_history where mem_no=#{mem_no}) as cash_cnt
+		FROM member WHERE mem_no = #{mem_no}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findMemberIdBySubEmail" parameterType="string" resultType="string">
+		SELECT mem_id FROM member WHERE sub_email = #{sub_email}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findDuplicateId" parameterType="string" resultType="boolean">
+		SELECT IF(COUNT(*) = 1 ,1 ,0) FROM member WHERE mem_id = #{mem_id}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findDuplicateSubEmail" parameterType="string" resultType="boolean">
+		SELECT IF(COUNT(*) > 0 ,1 ,0) FROM member WHERE sub_email = #{sub_email}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findDuplicateSNSId" parameterType="string" resultType="boolean">
+		SELECT IF(COUNT(*)=1 ,1 ,0) FROM member WHERE sns_id = #{sns_id} AND user_type = #{user_type}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findSecCode" parameterType="string" resultType="boolean">
+		SELECT IF(COUNT(*)=1 ,1 ,0) FROM member WHERE sec_code = #{sec_code}
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="findRefreshTokenById" parameterType="string" resultType="boolean">
+		SELECT IF(COUNT(*) > 0, 1, 0) FROM `member`
+		WHERE (mem_id = #{id} OR sns_id = #{id}) AND seces_mem_yn = 'N' AND del_yn = 'N'
+		AND refresh_token = #{token}
+	</select>
+
+	<select id="countMember" resultType="int">
+		SELECT count(*) FROM member AND seces_mem_yn = 'N' AND del_yn = 'N'
+	</select>
+
+	<select id="countSearchMember" parameterType="hashmap" resultType="int">
+		SELECT count(*) FROM member
+		WHERE (mem_id LIKE concat('%', #{search}, '%') OR nickname LIKE concat('%', #{search}, '%'))
+		AND seces_mem_yn = 'N' AND del_yn = 'N'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND Date(reg_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="countNewMember" resultType="int">
+		SELECT COUNT(*) FROM member WHERE DATE(reg_date) = DATE(NOW()) AND del_yn = 'N'
+	</select>
+
+	<insert id="insertMember" parameterType="storybird.vo.MemberVo" useGeneratedKeys="true" keyProperty="mem_no">
+		INSERT INTO member(mem_id, sns_id, user_type, sub_email, password, nickname, birth_date, gender,
+		rcmnd_id, event_alarm_yn, seces_mem_yn, nation_code, last_login_date, last_pw_date, reg_date)
+		VALUES(#{mem_id}, #{sns_id}, #{user_type}, #{sub_email}, #{password}, #{nickname},
+		#{birth_date}, #{gender}, #{rcmnd_id}, #{event_alarm_yn},'N', #{nation_code}, now(), now(), now())
+	</insert>
+	<!--#-->
+	<update id="updateLastLoginDateFromMemberById" parameterType="String">
+		UPDATE member SET
+			last_login_date = now()
+		WHERE mem_id = #{mem_id} AND user_type = #{user_type}
+	</update>
+
+	<update id="updateSecCodeById" parameterType="string">
+		UPDATE member SET
+			sec_code = #{sec_code}
+		WHERE mem_id = #{mem_id} AND user_type = #{user_type}
+	</update>
+
+	<update id="updateMemberPasswordByMemNo" parameterType="hashmap">
+		UPDATE member SET
+			password = #{password}
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateMemberLastPasswordDateByMemNo" parameterType="hashmap">
+		UPDATE member SET
+		last_pw_date = now()
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateMemberPasswordBySecCode" parameterType="string">
+		UPDATE member SET
+			password = #{password},
+			last_pw_date = now()
+		WHERE sec_code = #{sec_code}
+	</update>
+
+	<update id="updateMemberSecCodeEmpty" parameterType="string">
+		UPDATE member SET
+			sec_code = null
+		WHERE sec_code = #{sec_code}
+	</update>
+
+	<update id="updateMemberUseStatusByNo" parameterType="int">
+		UPDATE member SET
+			use_mem_yn = IF(use_mem_yn = 'Y', 'N', 'Y')
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateMemberByNo" parameterType="storybird.vo.MemberVo">
+		UPDATE member SET
+			sub_email = IFNULL(#{sub_email},sub_email),
+			password = IFNULL(#{password}, password),
+			nickname = IFNULL(#{nickname}, nickname),
+			birth_date = IFNULL(#{birth_date}, birth_date),
+			gender = IFNULL(#{gender}, gender),
+			rcmnd_id = IFNULL(#{rcmnd_id}, rcmnd_id),
+			event_alarm_yn = IFNULL(#{event_alarm_yn}, event_alarm_yn),
+			nation_code = IFNULL(#{nation_code}, nation_code)
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateRefreshTokenByNo" parameterType="hashMap">
+		UPDATE member SET
+			refresh_token = #{token}
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateSecessionFromMemberByNo" parameterType="storybird.vo.MemberVo">
+		UPDATE member SET
+			seces_feed = #{seces_feed},
+			seces_content = #{seces_content},
+			seces_mem_yn = 'Y',
+			seces_date = now()
+		WHERE mem_no = #{mem_no};
+	</update>
+
+	<update id="updateCustomerUidByNo" parameterType="hashMap">
+		UPDATE member SET
+			customer_uid = #{customer_uid}
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<update id="updateDelStateByNo" parameterType="int">
+		UPDATE member SET
+			del_yn = 'Y'
+		WHERE mem_no = #{mem_no}
+	</update>
+
+	<delete id="deleteMemberByNo" parameterType="int">
+		DELETE FROM member
+		WHERE mem_no = #{mem_no}
+	</delete>
+</mapper>

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.EpisodeDAO">
+	<select id="selectAllEpisode" parameterType="hashMap" resultType="storybird.vo.EpisodeVo">
+		SELECT * FROM episode
+		WHERE opus_no = #{opus_no} AND del_yn = 'N'
+		ORDER BY epi_num DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectEpisodeByOpusNo" parameterType="int" resultType="storybird.vo.EpisodeVo">
+		SELECT * FROM episode WHERE opus_no = #{opus_no} AND del_yn = 'N'
+	</select>
+
+	<select id="selectOpusEpisodeAll" parameterType="hashMap" resultType="storybird.vo.EpisodeVo">
+		SELECT *,
+			(SELECT COUNT(*) FROM opus_history ch WHERE ch.epi_seq = e.epi_num) cnt,
+			fn_epi_buy_status(rt, use_date) as buy_state,
+			IF(fn_epi_buy_status(rt, use_date) = 1, TIMESTAMPDIFF(MINUTE, NOW(), DATE_ADD(use_date, INTERVAL ${rent_day} DAY)), null) as rent_end_minute
+		FROM episode e
+		LEFT JOIN
+
+			(SELECT epi_seq, MAX(use_date) use_date, MIN(rant_yn) rt
+			FROM opus_history
+			WHERE mem_no = #{mem_no} AND cancel_yn = 'N' AND mem_ship_seq IS NULL
+			GROUP BY epi_seq) c
+
+		ON e.epi_seq = c.epi_seq
+		LEFT JOIN
+			(SELECT epi_seq, SUM(file_duration) `file_duration` FROM episode_file
+			WHERE del_yn = 'N'
+			GROUP BY epi_seq) d
+		ON e.epi_seq = d.epi_seq
+
+		WHERE e.opus_no = #{opus_no} AND e.del_yn = 'N'
+		<choose>
+			<when test='order == "HOT"'>
+				ORDER BY cnt DESC
+			</when>
+			<when test='order == "OLD"'>
+				ORDER BY e.epi_num
+			</when>
+			<otherwise>
+				ORDER BY e.epi_num DESC
+			</otherwise>
+		</choose>
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectEpisodeBySeq" parameterType="int" resultType="storybird.vo.EpisodeVo">
+		SELECT e.*, o.opus_title, o.opus_kind, o.genre
+		FROM episode e
+		LEFT JOIN opus o
+		ON o.opus_no = e.opus_no
+		WHERE epi_seq = #{epi_seq} AND e.del_yn = 'N'
+	</select>
+	<select id="selectEpisodeViewrlist" parameterType="hashMap" resultType="storybird.vo.EpisodeVo">
+		<![CDATA[
+		SELECT b.*, a.opus_title,a.exposure_author,a.exposure_voice_actor
+		FROM opus AS a LEFT JOIN  episode AS b ON a.opus_no=b.opus_no
+		WHERE   b.del_yn = 'N' AND b.opus_no= #{opus_no} AND b.epi_seq  >= #{epi_seq} LIMIT 10
+		]]>
+	</select>
+	<select id="selectEpisodeFile" parameterType="hashMap" resultType="storybird.vo.EpisodeFileVo">
+		SELECT * FROM episode_file
+		WHERE del_yn = 'N' AND opus_no = #{opus_no} and epi_seq= #{epi_seq} AND file_call_type = #{call_type}
+		ORDER BY `order` ASC
+	</select>
+
+	<select id="selectprebynext" parameterType="int" resultType="storybird.vo.EpisodeVo">
+		<![CDATA[
+		SELECT epi_seq,
+			IFNULL((SELECT epi_seq FROM episode n1 WHERE opus_no = #{opus_no} and n1.epi_num < n.epi_num AND n1.del_yn = 'N' ORDER BY epi_num DESC LIMIT 1), 0) AS preIdx,
+			IFNULL((SELECT epi_seq FROM episode n2 WHERE opus_no = #{opus_no} and n2.epi_num > n.epi_num AND n2.del_yn = 'N' ORDER BY epi_num ASC LIMIT 1), 0) AS nextIdx
+		FROM episode n
+		WHERE n.del_yn = 'N' AND opus_no= #{opus_no} AND epi_seq = #{epi_seq}
+	]]>
+	</select>
+
+	<select id="countEpisode" resultType="int">
+		SELECT count(*) FROM episode WHERE del_yn = 'N'
+	</select>
+	<select id="OpenEpisode" parameterType="int" resultType="storybird.vo.EpisodeVo">
+		SELECT * FROM episode WHERE  open_yn = 'Y' and del_yn='N' and opus_no = #{opus_no} order by  epi_seq DESC LIMIT 1
+	</select>
+
+	<select id="opuscountEpisode" parameterType="int" resultType="int">
+		SELECT count(*) FROM episode where opus_no = #{opus_no} AND del_yn = 'N'
+	</select>
+
+	<select id="selectMaxEpisodeNum" resultType="int">
+		SELECT IFNULL(MAX(epi_num),0) FROM episode WHERE del_yn = 'N'
+	</select>
+
+	<select id="countEpisodeByOpusNo" resultType="int" parameterType="int">
+		SELECT count(*) FROM episode
+		WHERE opus_no = #{opus_no} AND del_yn = 'N'
+	</select>
+
+	<select id="selectMaxEpisodeNumByOpusNo" parameterType="int" resultType="int">
+		SELECT IFNULL(MAX(epi_num),0) FROM episode
+		WHERE opus_no = #{opus_no} AND del_yn = 'N'
+	</select>
+
+	<insert id="insertEpisode" parameterType="storybird.vo.EpisodeVo" useGeneratedKeys="true" keyProperty="epi_seq">
+		INSERT INTO episode(opus_no, view_kind, epi_title, epi_num, free_yn,
+		rent_price, product_price, tax_free_code, tax_free_tag, tax_free_yn, reg_date)
+		VALUES(#{opus_no}, #{view_kind}, #{epi_title}, #{epi_num}, #{free_yn},
+		#{rent_price}, #{product_price}, #{tax_free_code}, #{tax_free_tag}, #{tax_free_yn}, now())
+	</insert>
+
+	<update id="updateEpisodeBySeq" parameterType="storybird.vo.EpisodeVo">
+		UPDATE episode SET
+		epi_title = IFNULL(#{epi_title}, epi_title),
+		rent_price = IFNULL(#{rent_price}, rent_price),
+		free_yn = IFNULL(#{free_yn}, free_yn),
+		product_price = IFNULL(#{product_price}, product_price),
+		tax_free_yn = IFNULL(#{tax_free_yn}, tax_free_yn),
+		tax_free_tag = IFNULL(#{tax_free_tag}, tax_free_tag),
+		tax_free_code = IFNULL(#{tax_free_code}, tax_free_code)
+		WHERE epi_seq = #{epi_seq}
+	</update>
+
+	<update id="updateEpisodeFreeBySeq" parameterType="int">
+		UPDATE episode SET
+		free_yn = IF(free_yn = 'Y', 'N', 'Y')
+		WHERE epi_seq = #{epi_seq}
+	</update>
+
+	<update id="updateEpisodeOpenBySeq" parameterType="int">
+		UPDATE episode SET
+		open_yn = IF(open_yn = 'Y', 'N', 'Y')
+		WHERE epi_seq = #{epi_seq}
+	</update>
+
+	<update id="updateEpisodeDeleteStateBySeq" parameterType="int">
+		UPDATE episode SET
+		del_yn = 'Y'
+		WHERE epi_seq = #{epi_seq}
+	</update>
+
+	<delete id="deleteEpisodeBySeq" parameterType="int">
+		DELETE FROM episode
+		WHERE epi_seq = #{epi_seq}
+	</delete>
+
+</mapper>

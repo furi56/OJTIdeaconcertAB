@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.IamportPaymentDAO">
+
+	<select id="selectOnePaymentByMerUID" parameterType="String" resultType="storybird.vo.IamportPaymentVo">
+		SELECT * FROM iamport_payment
+		WHERE merchant_uid = #{merchant_uid}
+	</select>
+
+	<select id="selectMerchantUidByChargeSeq" parameterType="int" resultType="String">
+		SELECT merchant_uid FROM iamport_payment
+		WHERE charge_seq = #{charge_seq}
+	</select>
+
+	<select id="selectOnePaymentByChargeSeq" parameterType="int" resultType="storybird.vo.IamportPaymentVo">
+		SELECT * FROM iamport_payment
+		WHERE charge_seq = #{charge_seq}
+	</select>
+
+	<select id="selectFirstChargeDateByCustomerUid" parameterType="String" resultType="String">
+		SELECT c.charge_date FROM iamport_payment i
+		INNER JOIN charge_history c ON i.charge_seq = c.charge_seq
+		WHERE customer_uid = #{customer_uid}
+		ORDER BY charge_date
+		LIMIT 1
+	</select>
+
+	<insert id="insertPayment" parameterType="storybird.vo.IamportPaymentVo">
+		INSERT INTO iamport_payment(charge_seq, h_idx, imp_uid,  merchant_uid, pay_method, channel, pg_provider,
+		pg_tid, apply_num, bank_code, bank_name, card_code, card_name, card_number, card_type,
+		name, amount, currency, buyer_email, buyer_name, buyer_tel, status, started_at,
+		paid_at, custom_data, customer_uid, customer_uid_usage)
+		VALUES(#{charge_seq}, #{h_idx}, #{imp_uid}, #{merchant_uid}, #{pay_method}, #{channel}, #{pg_provider},
+		#{pg_tid}, #{apply_num}, #{bank_code}, #{bank_name}, #{card_code}, #{card_name}, #{card_number}, #{card_type},
+		#{name}, #{amount}, #{currency}, #{buyer_email}, #{buyer_name}, #{buyer_tel}, #{status}, #{started_at},
+		#{paid_at}, #{custom_data}, #{customer_uid}, #{customer_uid_usage})
+	</insert>
+
+	<update id="updatePaymentByMerchantUid" parameterType="storybird.vo.IamportPaymentVo">
+		UPDATE iamport_payment SET
+			charge_seq = IF(#{charge_seq} = '0', charge_seq, #{charge_seq}),
+			h_idx = IF(#{h_idx} = '0', h_idx, #{h_idx}),
+			imp_uid = IFNULL(#{imp_uid}, imp_uid),
+			merchant_uid = IFNULL(#{merchant_uid}, merchant_uid),
+			pay_method = IFNULL(#{pay_method}, pay_method),
+			channel = IFNULL(#{channel}, channel),
+			pg_provider = IFNULL(#{pg_provider}, pg_provider),
+			pg_tid = IFNULL(#{pg_tid}, pg_tid),
+			escrow = IFNULL(#{escrow}, escrow),
+			apply_num = IFNULL(#{apply_num}, apply_num),
+			bank_code = IFNULL(#{bank_code}, bank_code),
+			bank_name = IFNULL(#{bank_name}, bank_name),
+			card_code = IFNULL(#{card_code}, card_code),
+			card_name = IFNULL(#{card_name}, card_name),
+			card_number = IFNULL(#{card_number}, card_number),
+			card_type = IFNULL(#{card_type}, card_type),
+			name = IFNULL(#{name}, name),
+			amount = IFNULL(#{amount}, amount),
+			cancel_amount = IFNULL(#{cancel_amount}, cancel_amount),
+			currency = IFNULL(#{currency}, currency),
+			buyer_email = IFNULL(#{buyer_email}, buyer_email),
+			buyer_name = IFNULL(#{buyer_name}, buyer_name),
+			buyer_tel = IFNULL(#{buyer_tel}, buyer_tel),
+			cancel_request_amount = IFNULL(#{cancel_request_amount}, cancel_request_amount),
+			refund_reason = IFNULL(#{refund_reason}, refund_reason),
+			status = IFNULL(#{status}, status),
+			started_at = IFNULL(#{started_at}, started_at),
+			paid_at = IFNULL(#{paid_at}, paid_at),
+			failed_at = IFNULL(#{failed_at}, failed_at),
+			cancelled_at = IFNULL(#{cancelled_at}, cancelled_at),
+			fail_reason = IFNULL(#{fail_reason}, fail_reason),
+			cancel_reason = IFNULL(#{cancel_reason}, cancel_reason),
+			receipt_url = IFNULL(#{receipt_url}, receipt_url),
+			custom_data = IFNULL(#{custom_data}, custom_data),
+			customer_uid = IFNULL(#{customer_uid}, customer_uid),
+			customer_uid_usage = IFNULL(#{customer_uid_usage}, customer_uid_usage)
+		WHERE merchant_uid = #{merchant_uid}
+	</update>
+</mapper>

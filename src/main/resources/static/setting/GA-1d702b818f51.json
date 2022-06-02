@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "storybird-343401",
+  "private_key_id": "9f264853e477ef771df9146b0a149389e66deacb",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDiYINU313CogYX\nV6NzMpd3Jybb+bf5EYyjg3kAYxLKbo/6nPbVApnLXcp65H/U9Ax7yQpeNKQs/N+v\nhiwMTCkQEEuopdXhB3XsWW+ZgrFpLKRku6SYHwNgWTeqow0PlL4dY44PryXdtPb8\nHcv4vD8QxTdVp64uHfr2IW1RYyYE1b80t1oEriZ0wC5KcJ/C46VKKOVZE35H4sIP\n9g7BdzkNRI6nZOUtH10v2feU4q+wtcF14dPMZRB7oXOsCwCBxdmPtO8GtpXmlQb3\n+bwOGOCx0GiwiI1Ux6QTrOOJ1dwpdBBUa/E8bSHzH+YLvJDRIfprBwYr2G54JkSp\nSuHy/6nFAgMBAAECggEAYBv5ph7u/6MqUt6yVkY0aDIHHX13zhbVTtaSmMd3QtqN\n5iid4vGnud+oB2TboN28LxG7hSN0UGVL0ol0SgRLqrZAaOl/VHqGZkHST6pdB/oc\nEWhZCPyhwlYefCOdd+/+hxutRJtnyCj8cy1zW7cQT15rj8IRASNZWQX4E4W0rngE\ndQXMBX+5u7t9PI58mkZxHo5v5tax0tr0ijR3qz2eO0n/p5mXZrzP4xNDaaH0pPni\neIF7ru/9+PZ8BKerwDjG6SReqYYUiRRxgBz7mZXJxsGjk9UZdi2uYoVh6Ue1mzBm\nAIc9OwNktCZaFrXGp5jdWY+k3BcfWVHrQJWKUOXEQQKBgQD9oNcRdzjAqjc5QnMp\nCbpbSalHLjXwMDdkimFdhVzIKxs92Tg2tUaRq+Zkw5VUCPCN6sZvSE3U11tTwwZi\nFk66uXuT7Kncxj9QtC6DM9mKDqJOQ4lqbFjts/szNdeCe5KEGgYGxJzUBltr4pAQ\nCbbUkl40C/dS2PcBuRXRxkbGiwKBgQDkfm+oSHSrK1oPv+ViU9ohxHDDgrCTc48I\nYudCrpW3dnlx6cPgXqKPdFFvOJhN5qSZZDT4BH+iUAc4PqkycQSGTvsDh9NUJbLy\nSPXONhgmPJ29x5lKjRiNTNEBAxYPwKs3R2DIvGiF8WBjz9FnVexahosZREcFGC4w\nXd9JO7yq7wKBgQDEAQOUDNXAFwtcZd0Hbuwk1jVKvAyVFT4JpeN+2ayNSLrhvjfy\nF3903irL3lZNvibhFfnKUE9N2CxM/B+3t9OZ+/PjqnbPFioiHU0AuhY42fxWjVzp\n8Nd8w6Wyur5UqVjeXBoiKtmkBVGre0ioDEnN11uTz1eQH/ory7RwDFHv5wKBgQCX\nlsZPF9rHIJi8cCwnYsgJtQC2xMKO4JCZGLyigZ70O1Zw24zHEyG4GIxaRGrO6+Bx\nn4iArsNalMtlZjTsMQy2ajmf6wGqBuTEVuE0sLCu1XI1UPGDAz6xp6/Vgw2k38b3\ngpRUOKMDkdLIBTzA2MFYgYBQ//o6CAPEtNKJDGer4wKBgAfEQUbOvWMdXtrv0qDu\nFYqeQXB96b/ilMyfT5voQnyVS2Y1ShuLtM4de85dJzsRu6iXsU2S8n2hmEB0Ilwt\nHuxSm4K/Ci1Z9iPpuy4I6a1JSoafrG9IyS8Wpr52PbLulhtDjpDJR7GKJVI1Oa3G\nErBgIPRTgmJJ0i/eI7Rb96bT\n-----END PRIVATE KEY-----\n",
+  "client_email": "storybirdmain@storybird-343401.iam.gserviceaccount.com",
+  "client_id": "115556625637197432241",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/storybirdmain%40storybird-343401.iam.gserviceaccount.com"
+}

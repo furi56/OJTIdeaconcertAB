@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.DisplayOpusDAO">
+
+	<select id="selectDisplayOpusByType" parameterType="hashMap" resultType="storybird.vo.DisplayOpusVo">
+		SELECT d.*, o.opus_code, c.opus_kind, o.thumb_path, c.genre, c.day_week, c.start_date, o.opus_title,
+		fn_author_no_to_name(o.author_no,',') author_name, o.lang_code,
+		(SELECT COUNT(*) FROM episode WHERE opus_no = d.opus_no) as epi_total FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE `dsp_type` = #{dsp_type} AND d.del_yn = 'N' AND c.opus_kind LIKE '%${opus_kind}%'
+		AND c.genre LIKE '%${genre}%' AND d.lang_code = #{lang_code}
+		AND (o.opus_title LIKE concat('%', #{search}, '%') OR fn_author_no_to_name(o.author_no,',') LIKE concat('%', #{search}, '%')
+			OR opus_code LIKE concat('%', #{search}, '%'))
+		<if test="start_date != null and start_date != ''">
+			AND c.start_date LIKE '%${start_date}%'
+		</if>
+		<choose>
+			<when test="day_week == '-1'">
+				AND c.irregular_yn = 'Y'
+			</when>
+			<otherwise>
+				AND c.day_week LIKE '%${day_week}%'
+			</otherwise>
+		</choose>
+		ORDER BY d.dsp_order
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="selectDisplayOpusToOpusVo" parameterType="hashMap" resultType="storybird.vo.OpusVo">
+		<![CDATA[
+		SELECT o.opus_no, oc.*,o.opus_title, o.opus_code, o.thumb_path, o.thumb_vert_path,
+		o.hash_tag, o.story_intro, o.lang_code as lang, o.author_no, o.company_code,
+		fn_author_no_to_name(o.author_no,',') author_name,exposure_author, exposure_voice_actor, exposure_company,
+		fn_author_no_to_name(o.voice_actor_no,',') voice_name,
+		(SELECT AVG(s_score) FROM opus_starscore s WHERE s.opus_no = o.opus_no) AS star_score,
+		(SELECT COUNT(*) FROM opus_history ch WHERE ch.opus_no = o.opus_no) AS view_cnt,
+		(SELECT COUNT(*) FROM favorite_opus WHERE opus_no = o.opus_no) AS fav_cnt,
+		(SELECT IF(COUNT(*) > 0,'Y','N') FROM pm_event WHERE evt_type = 1 AND DATE(end_date) >= DATE(NOW()) AND opus_no = o.opus_no) AS evt_yn,
+		IF(o.reg_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH) AND o.reg_date <= DATE(NOW()),'Y','N') new_yn
+		FROM opus o
+		INNER JOIN (
+		SELECT opus_no, dsp_order FROM display_opus
+		WHERE dsp_type = #{dsp_type} AND del_yn = 'N'
+		) d
+		ON o.opus_no = d.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE oc.opus_kind LIKE '%${opus_kind}%' AND oc.day_week LIKE '%${day_week}%'
+		AND o.del_yn = 'N' AND service_state = 'P'
+		]]>
+		<if test="genre != 'ALL' ">
+			AND oc.genre LIKE '%${genre}%'
+		</if>
+		<choose>
+			<when test="order == 'score'">
+				ORDER BY star_score DESC
+			</when>
+			<when test="order == 'latest'">
+				ORDER BY start_date DESC
+			</when>
+			<when test="order == 'view'">
+				ORDER BY opus_count DESC
+			</when>
+			<otherwise>
+				ORDER BY d.dsp_order
+			</otherwise>
+		</choose>
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="countDisplayOpusByType" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE `dsp_type` = #{dsp_type} AND d.del_yn = 'N' AND c.opus_kind LIKE '%${opus_kind}%'
+		AND c.genre LIKE '%${genre}%' AND d.lang_code = #{lang_code}
+		AND (o.opus_title LIKE concat('%', #{search}, '%') OR fn_author_no_to_name(o.author_no,',') LIKE concat('%', #{search}, '%')
+		OR opus_code LIKE concat('%', #{search}, '%'))
+		<if test="start_date != null and start_date != ''">
+			AND c.start_date LIKE '%${start_date}%'
+		</if>
+		<choose>
+			<when test="day_week == '-1'">
+				AND c.irregular_yn = 'Y'
+			</when>
+			<otherwise>
+				AND c.day_week LIKE '%${day_week}%'
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="countDisplayOpusToOpusVo" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus o
+		INNER JOIN (
+		SELECT opus_no FROM display_opus
+		WHERE dsp_type = #{dsp_type} AND del_yn = 'N'
+		) d
+		ON o.opus_no = d.opus_no
+		INNER JOIN opus_contract c ON o.cont_no = c.o_no
+		WHERE c.opus_kind LIKE '%${opus_kind}%' AND c.day_week LIKE '%${day_week}%'
+		AND o.del_yn = 'N' AND service_state = 'P'
+		<if test="genre != 'ALL' ">
+			AND c.genre LIKE '%${genre}%'
+		</if>
+	</select>
+
+	<select id="selectDisplayOpusByNo" parameterType="int" resultType="storybird.vo.DisplayOpusVo">
+		SELECT d.*, oc.opus_kind FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE dsp_no = #{no}
+	</select>
+
+	<select id="selectLastOrderByNo" parameterType="hashMap" resultType="boolean">
+		SELECT
+		IF(MAX(dsp_order) =
+		(SELECT dsp_order FROM display_opus WHERE dsp_no = #{no}),1,0) as result FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		AND oc.opus_kind = #{opus_kind} AND dsp_type = #{dsp_type} AND oc.genre LIKE '%${genre}%'
+		AND d.del_yn = 'N'
+	</select>
+
+	<select id="findDuplicateDisplay" parameterType="storybird.vo.DisplayOpusVo" resultType="boolean">
+		SELECT IF(COUNT(*) != 0, 1, 0) FROM display_opus
+		WHERE opus_no = #{opus_no} AND dsp_type = #{dsp_type}
+	</select>
+
+	<select id="findDuplicateDisplayByOpusNo" parameterType="int" resultType="boolean">
+		SELECT IF(COUNT(*) != 0, 1, 0) FROM display_opus
+		WHERE opus_no = #{opus_no}
+	</select>
+
+	<select id="selectFirstOrderByNo" parameterType="int" resultType="boolean">
+		SELECT
+		IF(MIN(dsp_order) =
+		(SELECT dsp_order FROM display_opus WHERE dsp_no = #{no}),1,0) as result FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		AND oc.opus_kind = #{opus_kind} AND dsp_type = #{dsp_type} AND oc.genre LIKE '%${genre}%'
+		AND d.del_yn = 'N'
+	</select>
+
+	<select id="selectDropOrderByNo" parameterType="hashMap" resultType="storybird.vo.DisplayOpusVo">
+		SELECT * FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE oc.opus_kind = #{opus_kind} AND dsp_type = #{dsp_type} AND oc.genre LIKE '%${genre}%' AND d.del_yn = 'N'
+		AND dsp_order > #{dsp_order}
+		ORDER BY dsp_order
+		LIMIT 1
+	</select>
+
+	<select id="selectRiseOrderByNo" parameterType="hashMap" resultType="storybird.vo.DisplayOpusVo">
+		<![CDATA[
+		SELECT * FROM display_opus d
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE oc.opus_kind = #{opus_kind} AND dsp_type = #{dsp_type} AND oc.genre LIKE '%${genre}%' AND d.del_yn = 'N'
+		AND dsp_order < #{dsp_order}
+		ORDER BY dsp_order DESC
+		LIMIT 1
+		]]>
+	</select>
+
+	<insert id="insertDisplayOpus" parameterType="storybird.vo.DisplayOpusVo">
+		<selectKey order="BEFORE" keyProperty="dsp_order" resultType="int">
+			SELECT IFNULL(MAX(dsp_order), 0) + 1 as dsp_order FROM display_opus d
+			INNER JOIN opus o	ON d.opus_no = o.opus_no
+			INNER JOIN opus_contract c ON o.cont_no = c.o_no
+			WHERE dsp_type = #{dsp_type}
+			AND c.opus_kind = (SELECT a1.opus_kind FROM opus_contract a1 INNER JOIN opus a2 ON a1.o_no = a2.cont_no WHERE a2.opus_no = #{opus_no})
+			AND o.lang_code = #{lang_code}
+		</selectKey>
+		INSERT INTO display_opus(opus_no, dsp_order, dsp_type, lang_code, reg_date)
+		VALUES(#{opus_no}, #{dsp_order}, #{dsp_type}, #{lang_code}, now())
+	</insert>
+
+	<update id="sortDisplayOpusOrder" parameterType="String">
+		UPDATE display_opus as a,
+		(SELECT d.*, @ROWNUM := @ROWNUM + 1 AS ROWNUM
+		FROM display_opus d
+		JOIN (SELECT @ROWNUM:=0) as r1
+		INNER JOIN opus o ON d.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE d.dsp_type = #{dsp_type} AND d.del_yn = 'N' AND d.lang_code = #{lang_code}
+		AND oc.opus_kind = #{opus_kind}
+		ORDER BY dsp_order) as r
+		SET a.dsp_order = r.ROWNUM
+		WHERE a.dsp_no = r.dsp_no and a.dsp_type = r.dsp_type AND a.del_yn = 'N'
+	</update>
+
+	<update id="updateOrderRiseByNo" parameterType="storybird.vo.DisplayOpusVo">
+		<selectKey order="BEFORE" keyProperty="target_no" resultType="int">
+			SELECT d.dsp_no FROM display_opus d
+			INNER JOIN opus o
+			ON d.opus_no = o.opus_no
+			WHERE dsp_order = (SELECT dsp_order - 1 FROM display_opus WHERE dsp_no = #{dsp_no})
+			AND dsp_type = (SELECT dsp_type FROM display_opus WHERE dsp_no = #{dsp_no})
+			AND d.del_yn = 'N'
+		</selectKey>
+		UPDATE display_opus SET
+		dsp_order = (SELECT * FROM (SELECT dsp_order FROM display_opus WHERE dsp_no = #{dsp_no}) as a)
+		WHERE dsp_no = #{target_no}
+	</update>
+
+	<update id="updateAfterOrderRiseByNo" parameterType="int">
+		UPDATE display_opus SET
+		dsp_order = dsp_order - 1
+		WHERE dsp_no = #{dsp_no}
+	</update>
+
+	<update id="updateOrderDropByNo" parameterType="storybird.vo.DisplayOpusVo">
+		<selectKey order="BEFORE" keyProperty="target_no" resultType="int">
+			SELECT d.dsp_no FROM display_opus d
+			INNER JOIN opus o
+			ON d.opus_no = o.opus_no
+			WHERE dsp_order = (SELECT dsp_order + 1 FROM display_opus WHERE dsp_no = #{dsp_no})
+			AND dsp_type = (SELECT dsp_type FROM display_opus WHERE dsp_no = #{dsp_no})
+		</selectKey>
+		UPDATE display_opus SET
+		dsp_order = (SELECT * FROM (SELECT dsp_order FROM display_opus WHERE dsp_no = #{dsp_no}) as a)
+		WHERE dsp_no = #{target_no}
+	</update>
+
+	<update id="updateOrderByNo" parameterType="int">
+		UPDATE display_opus SET
+		dsp_order = #{dsp_order}
+		WHERE dsp_no = #{dsp_no}
+	</update>
+
+	<update id="updateDisplayOpusDeleteStateByNo" parameterType="int">
+		UPDATE display_opus SET
+		del_yn = 'Y'
+		WHERE dsp_no = #{no}
+	</update>
+
+	<delete id="deleteDisplayOpusByNo" parameterType="int">
+		DELETE FROM display_opus
+		WHERE dsp_no = #{no}
+	</delete>
+</mapper>

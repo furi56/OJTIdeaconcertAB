@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0 //EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="storybird.dao.BuyHistoryDAO">
+
+	<sql id="saleTableColumns">
+		IFNULL(SUM(CASE WHEN `m` = 1 THEN cash END),0) AS jan,
+		IFNULL(SUM(CASE WHEN `m` = 2 THEN cash END),0) AS feb,
+		IFNULL(SUM(CASE WHEN `m` = 3 THEN cash END),0) AS mar,
+		IFNULL(SUM(CASE WHEN `m` = 4 THEN cash END),0) AS apr,
+		IFNULL(SUM(CASE WHEN `m` = 5 THEN cash END),0) AS may,
+		IFNULL(SUM(CASE WHEN `m` = 6 THEN cash END),0) AS jun,
+		IFNULL(SUM(CASE WHEN `m` = 7 THEN cash END),0) AS jul,
+		IFNULL(SUM(CASE WHEN `m` = 8 THEN cash END),0) AS aug,
+		IFNULL(SUM(CASE WHEN `m` = 9 THEN cash END),0) AS sep,
+		IFNULL(SUM(CASE WHEN `m` = 10 THEN cash END),0) AS `oct`,
+		IFNULL(SUM(CASE WHEN `m` = 11 THEN cash END),0) AS nov,
+		IFNULL(SUM(CASE WHEN `m` = 12 THEN cash END),0) AS `dec`
+	</sql>
+	<sql id="monthDateTableColumns">
+		(
+		SELECT 1 temp_date
+		UNION ALL SELECT 2
+		UNION ALL SELECT 3
+		UNION ALL SELECT 4
+		UNION ALL SELECT 5
+		UNION ALL SELECT 6
+		UNION ALL SELECT 7
+		UNION ALL SELECT 8
+		UNION ALL SELECT 9
+		UNION ALL SELECT 10
+		UNION ALL SELECT 11
+		UNION ALL SELECT 12
+		) temp
+	</sql>
+
+	<select id="selectAllUseCashSum" resultType="int" parameterType="hashMap">
+		SELECT IFNULL(SUM(use_cash),0) FROM opus_history c
+		INNER JOIN member m ON c.mem_no = m.mem_no
+		INNER JOIN opus o ON c.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON o.cont_no = oc.o_no
+		WHERE cancel_yn = 'N' AND gift_no IS NULL
+		AND m.mem_id LIKE concat('%', #{search}, '%') AND oc.opus_kind LIKE '%${kind}%'
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND Date(use_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="selectUseCashHistory" parameterType="hashMap" resultType="storybird.vo.OpusHistoryVo">
+		SELECT ch.*, e.epi_title, o.opus_title, m.mem_id, oc.opus_kind FROM opus_history ch
+		INNER JOIN episode e ON ch.epi_seq = e.epi_seq AND ch.opus_no = e.opus_no
+		INNER JOIN opus o ON ch.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON oc.o_no = o.cont_no
+		INNER JOIN member m ON m.mem_no = ch.mem_no
+		WHERE cancel_yn = 'N' AND gift_no IS NULL AND oc.opus_kind LIKE '%${kind}%'
+		AND mem_id LIKE concat('%', #{search}, '%')
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+		AND Date(use_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+		ORDER BY use_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="countUseCashHistory" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus_history ch
+		INNER JOIN episode e ON ch.epi_seq = e.epi_seq AND ch.opus_no = e.opus_no
+		INNER JOIN opus o ON ch.opus_no = o.opus_no
+		INNER JOIN opus_contract oc ON oc.o_no = o.cont_no
+		INNER JOIN member m ON m.mem_no = ch.mem_no
+		WHERE cancel_yn = 'N' AND gift_no IS NULL AND oc.opus_kind LIKE '%${kind}%'
+		AND mem_id LIKE concat('%', #{search}, '%')
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND Date(use_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="selectAllCashHistoryByMemNo" parameterType="hashMap" resultType="storybird.vo.OpusHistoryVo">
+		<![CDATA[
+		SELECT *, IF(remain > 0, remain, 0) AS remain_cash
+		FROM (
+		SELECT c.mem_no,c.epi_seq,c.use_cash,c.rant_yn,c.cancel_yn,c.use_date,c.opus_no,o.opus_title,e.epi_title, e.epi_num as epi_number,
+			(SELECT SUM(charge_cash) FROM charge_history b WHERE mem_no = #{mem_no} AND buy_state = 'B')
+			- (SELECT SUM(use_cash) FROM opus_history a WHERE mem_no = #{mem_no} AND a.use_date <= c.use_date AND gift_no IS NULL AND cancel_yn = 'N')
+		AS remain
+		FROM opus_history c
+			inner join opus as o on c.opus_no = o.opus_no
+			inner join episode as e on c.epi_seq = e.epi_seq
+		WHERE c.mem_no = #{mem_no}
+		ORDER BY use_date desc) a
+		LIMIT #{start}, #{num}
+		]]>
+	</select>
+
+	<select id="selectAllCashHistoryGroupByMemNo" parameterType="hashMap" resultType="storybird.vo.OpusHistoryVo">
+		<![CDATA[
+		SELECT mem_no, use_date, opus_title, rant_yn, cancel_yn, SUM(use_cash) use_cash, COUNT(*) buy_amount
+		FROM (
+		SELECT c.mem_no,c.rant_yn,c.cancel_yn,c.use_cash, c.use_date,c.opus_no,o.opus_title,e.epi_title
+		FROM opus_history c
+			inner join opus as o on c.opus_no = o.opus_no
+			inner join episode as e on c.epi_seq = e.epi_seq
+		WHERE c.mem_no = #{mem_no}
+		ORDER BY use_date desc) a
+		GROUP BY use_date, opus_title, opus_no,rant_yn ,cancel_yn
+		LIMIT #{start}, #{num}
+		]]>
+	</select>
+
+	<select id="selectAllCashHistory" parameterType="hashMap" resultType="storybird.vo.OpusHistoryVo">
+		SELECT a.mem_no,a.epi_seq,a.use_cash,a.rant_yn,a.use_date,a.opus_no,b.rent_price,b.product_price,b.opus_title,b.opus_kind,c.epi_title
+		FROM opus_history as a
+				 inner join opus as b on a.opus_no = b.opus_no
+				 inner join episode as c on a.epi_seq = c.epi_seq
+		WHERE b.opus_title LIKE concat('%', #{search}, '%')
+		<if test="kind != '' and kind != null">
+			AND b.opus_kind LIKE '%${kind}%'
+		</if>
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(a.use_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+		ORDER BY a.use_date DESC
+			LIMIT #{start}, #{num}
+	</select>
+	<select id="selectAlloutCashHistory" parameterType="hashMap" resultType="storybird.vo.OpusHistoryVo">
+		SELECT a.*,b.opus_title,b.opus_kind,c.company_name
+		FROM out_opus_history as a
+		inner join opus as b on a.opus_no = b.opus_no
+		inner join partner_company as c on a.partner_no = c.partner_no
+		WHERE b.opus_title LIKE concat('%', #{search}, '%')
+		<if test="kind != '' and kind != null">
+			AND b.opus_kind LIKE '%${kind}%'
+		</if>
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(a.sale_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+		ORDER BY a.sale_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+	
+	<select id="selectCashSumByMemNo" parameterType="int" resultType="int">
+		SELECT IFNULL(SUM(use_cash),0) FROM opus_history
+		WHERE mem_no = #{mem_no}
+	</select>
+
+	<select id="selectBonusCashSumByMemNo" parameterType="int" resultType="int">
+		SELECT IFNULL(SUM(use_cash),0) FROM opus_history
+		WHERE mem_no = #{mem_no}
+	</select>
+	
+	<select id="selectCashbybuy" parameterType="hashMap" resultType="int">
+		SELECT count(*) FROM opus_history
+		WHERE mem_no = #{mem_no} and opus_no = #{opus_no} and epi_seq = #{epi_seq} AND cancel_yn = 'N'
+		AND use_cash > 0
+	</select>
+	<select id="selectGiftCashbybuy" parameterType="hashMap" resultType="int">
+		SELECT count(*) FROM opus_history
+		WHERE mem_no = #{mem_no} and opus_no = #{opus_no} and epi_seq = #{epi_seq} and gift_no = #{gift_no} AND cancel_yn = 'N'
+	</select>
+
+	<select id="selectOpusBuyNeed" parameterType="hashMap" resultType="boolean">
+		SELECT CASE
+		WHEN (fn_epi_buy_status(MIN(rant_yn), MAX(use_date)) = 0) THEN '1'
+		WHEN (fn_epi_buy_status(MIN(rant_yn), MAX(use_date)) = 2) THEN '1'
+		ELSE '0'
+		END buy_need
+		FROM opus_history c
+		WHERE mem_no = #{mem_no} and opus_no = #{opus_no} and epi_seq = #{epi_seq} AND mem_ship_seq IS NULL
+		AND cancel_yn = 'N' AND use_cash > 0
+	</select>
+
+	<select id="selectOpusBuyStatus" parameterType="hashMap" resultType="int">
+		SELECT fn_epi_buy_status(MIN(rant_yn), MAX(use_date))
+		FROM opus_history
+		WHERE mem_no = #{mem_no} and opus_no = #{opus_no} and epi_seq = #{epi_seq} AND mem_ship_seq IS NULL
+	</select>
+
+	<select id="selectGiftOpusBuyNeed" parameterType="hashMap" resultType="boolean">
+		SELECT CASE
+				   WHEN (fn_epi_buy_status(MIN(rant_yn), MAX(use_date)) = 0) THEN '1'
+				   WHEN (fn_epi_buy_status(MIN(rant_yn), MAX(use_date)) = 2) THEN '1'
+				   ELSE '0'
+				   END buy_need
+		FROM opus_history c
+		WHERE mem_no = #{mem_no} and opus_no = #{opus_no} and epi_seq = #{epi_seq} and gift_no=#{gift_no}
+	</select>
+	
+	<select id="countCashHistoryByMemNo" resultType="int">
+		SELECT COUNT(*) FROM opus_history as a
+					    inner join opus as b on a.opus_no = b.opus_no
+						inner join episode as c on a.epi_seq = c.epi_seq
+		WHERE mem_no = #{mem_no}
+	</select>
+
+	<select id="countOpusBuyHistoryByMemNo" resultType="int">
+		SELECT COUNT(*) FROM opus_history
+		WHERE mem_no = #{mem_no} AND opus_no = #{opus_no}
+	</select>
+
+	<select id="countCashHistoryGroupByMemNo" resultType="int">
+		SELECT COUNT(*)
+			FROM (SELECT use_date
+			FROM (
+			SELECT c.mem_no,c.rant_yn,c.cancel_yn,c.use_cash, c.use_date,c.opus_no,o.opus_title,e.epi_title
+			FROM opus_history c
+			inner join opus as o on c.opus_no = o.opus_no
+			inner join episode as e on c.epi_seq = e.epi_seq
+			WHERE c.mem_no = #{mem_no}) a
+		GROUP BY use_date, opus_title, opus_no,rant_yn,cancel_yn)b
+	</select>
+
+	<select id="countCashHistory" resultType="int">
+		SELECT COUNT(*) FROM opus_history as a
+								 inner join opus as b on a.opus_no = b.opus_no
+								 inner join episode as c on a.epi_seq = c.epi_seq
+		WHERE b.opus_title LIKE concat('%', #{search}, '%')
+		<if test="kind != '' and kind != null">
+			AND b.opus_kind LIKE '%${kind}%'
+		</if>
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(a.use_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+	<select id="countoutCashHistory" resultType="int">
+		SELECT COUNT(*)
+		FROM out_opus_history as a
+		inner join opus as b on a.opus_no = b.opus_no
+		inner join partner_company as c on a.partner_no = c.partner_no
+		WHERE b.opus_title LIKE concat('%', #{search}, '%')
+		<if test="kind != '' and kind != null">
+			AND b.opus_kind LIKE '%${kind}%'
+		</if>
+		<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+			AND DATE(a.sale_date) BETWEEN #{start_date} AND #{end_date}
+		</if>
+	</select>
+
+	<select id="selectAllSaleInfoByMonth" parameterType="int" resultType="hashMap">
+		SELECT
+		sale_type as platform_name,
+		IFNULL(SUM(CASE WHEN `m` = #{month} THEN cash END),0) sale_price
+		FROM
+		( SELECT temp_date `m`,
+		IFNULL(SUM(IF(sale_date LIKE CONCAT('%',YEAR(NOW()),'%'), sale_cash, 0)),0) AS cash,
+		sale_type
+		FROM
+		( SELECT 'out' as sale_type, sale_date, sale_cash FROM out_opus_history
+		UNION ALL
+		SELECT 'in' as sale_type, use_date AS sale_date, use_cash AS sale_cash FROM opus_history
+		WHERE cancel_yn = 'N') a1
+		RIGHT JOIN
+		<include refid="monthDateTableColumns"/>
+		ON temp_date = MONTH(sale_date)
+		GROUP BY `m`, sale_type
+		) a2
+		GROUP BY sale_type
+		HAVING sale_type IS NOT NULL
+	</select>
+
+	<select id="countSaleTableByOpusNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM opus WHERE opus_no = #{opus_no}
+	</select>
+
+	<select id="countAllOpusSaleTable" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus
+		WHERE opus_kind LIKE '%${kind}%'
+		AND opus_title LIKE concat('%', #{search}, '%')
+	</select>
+
+	<select id="countAllPartnerSaleTable" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM
+		(
+			SELECT sale_date
+			FROM partner_company p
+			LEFT JOIN
+			(
+			SELECT o.opus_no, o.company_code, opus_kind, DATE(use_date) AS sale_date
+				FROM opus o
+				LEFT JOIN opus_history c
+				ON o.opus_no = c.opus_no
+				<if test="start_date != null and start_date != '' and end_date != null and end_date != ''">
+				AND DATE(use_date) BETWEEN #{start_date} AND #{end_date}
+				</if>
+				GROUP BY o.opus_no, use_date
+				HAVING o.opus_kind LIKE '%${kind}%'
+			) a1
+		ON a1.company_code = p.partner_code
+		GROUP BY p.partner_code, company_name, sale_date
+		HAVING sale_date IS NOT NULL AND p.company_name LIKE concat('%', #{search}, '%')
+		) a
+	</select>
+
+	<select id="countPartnerOpusByNo" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM partner_company p
+		INNER JOIN
+		(
+			SELECT o.opus_no, o.company_code
+			FROM opus o
+			LEFT JOIN opus_history c
+			ON o.opus_no = c.opus_no
+			GROUP BY o.opus_no
+		)a1
+		ON p.partner_code = a1.company_code
+		WHERE p.partner_no = #{no}
+	</select>
+
+	<select id="countPartnerOutSale" resultType="int">
+		SELECT COUNT(DISTINCT partner_no, platform_name) FROM out_opus_history
+	</select>
+
+	<select id="countMemberShipHistory" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus_history
+		WHERE mem_no = #{mem_no}
+		AND opus_no = #{opus_no}
+		AND epi_seq = #{epi_seq}
+		AND DATE(use_date) = DATE(NOW())
+	</select>
+
+	<select id="selectBuyOpusListByMemNo" parameterType="hashMap" resultType="storybird.vo.join.MyPageOpusInfoVo">
+		SELECT h_idx, b.opus_no, e.epi_title, epi_num,
+		b.opus_title, b.opus_code, b.thumb_path, b.lang_code lang,
+		fn_author_no_to_name(b.author_no,',') author_name, b.exposure_author, b.exposure_company,
+		a.use_date, IF(rant_yn = 'Y', DATE_ADD(a.use_date, INTERVAL 90 DAY), NULL) rant_end_date
+		FROM opus_history a
+		inner join opus b on a.opus_no = b.opus_no
+		INNER JOIN episode e ON a.epi_seq = e.epi_seq
+		WHERE a.mem_no = #{no} AND cancel_yn = 'N' AND rant_yn = #{rant_yn} AND show_yn = 'Y'
+		AND a.use_cash > 0 AND mem_ship_seq IS NULL
+		ORDER BY a.use_date DESC
+		LIMIT #{start}, #{num}
+	</select>
+
+	<select id="countBuyOpusListByMemNo" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) FROM opus_history
+		WHERE rant_yn = #{rant_yn} AND show_yn = 'Y' AND cancel_yn = 'N'
+		AND mem_no = #{mem_no}
+	</select>
+
+	<select id="countNowBuyHistory" parameterType="int" resultType="int">
+		SELECT COUNT(*) FROM opus_history
+		WHERE mem_no = #{mem_no} AND opus_no = #{opus_no} AND epi_seq = #{epi_seq}
+		AND DATE(use_date) = DATE(NOW())
+	</select>
+
+	<insert id="insertCashHistory" parameterType="storybird.vo.OpusHistoryVo" useGeneratedKeys="true" keyProperty="h_idx">
+		INSERT INTO opus_history
+		(mem_no, opus_no, epi_seq, use_cash, rant_yn, use_date)
+		VALUES(#{mem_no}, #{opus_no}, #{epi_seq}, #{use_cash}, #{rant_yn}, NOW())
+	</insert>
+	<insert id="insertMemberShipCashHistory" parameterType="storybird.vo.OpusHistoryVo">
+		INSERT INTO opus_history
+		(mem_no, opus_no, epi_seq, use_cash, mem_ship_seq, rant_yn, use_date)
+		VALUES(#{mem_no}, #{opus_no}, #{epi_seq}, #{use_cash}, #{mem_ship_seq}, #{rant_yn}, NOW())
+	</insert>
+	<insert id="insertGiftCashHistory" parameterType="storybird.vo.OpusHistoryVo">
+		INSERT INTO opus_history
+			(mem_no, opus_no, epi_seq,gift_no, use_cash, rant_yn, use_date)
+		VALUES(#{mem_no}, #{opus_no}, #{epi_seq},#{gift_no}, #{use_cash}, #{rant_yn}, NOW())
+	</insert>
+	<insert id="insertoutHistory" parameterType="storybird.vo.OpusHistoryVo">
+		INSERT INTO out_opus_history
+			(partner_no,opus_no, admin_no, platform_name, start_date, end_date,sale_cash, deposit_date, tax_date,sale_date,regdate)
+		VALUES(#{partner_no}, #{opus_no}, #{admin_no}, #{platform_name}, #{start_date}, #{end_date},#{sale_cash}, #{deposit_date},#{tax_date},#{sale_date},NOW())
+	</insert>
+
+	<update id="updateShowByIdx" parameterType="hashMap">
+		UPDATE opus_history SET
+			show_yn = #{show_yn}
+		WHERE h_idx = #{h_idx}
+	</update>
+
+	<update id="updateCancelState" parameterType="hashMap">
+		UPDATE opus_history SET
+			cancel_yn = #{cancel_yn}
+		WHERE h_idx = #{h_idx}
+	</update>
+
+</mapper>
