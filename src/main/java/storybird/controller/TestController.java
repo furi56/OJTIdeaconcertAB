@@ -59,6 +59,19 @@ public class TestController {
                 .data(tokenMap)
                 .build());
     }
+    @GetMapping("/user/exp/token")
+    public ResponseEntity<DataResponse> getUserExpiredToken() {
+        String token = jwtTokenProvider.createToken(
+                "qdsa09@gmail.com", Collections.singletonList("USER"), "BS", 0);
+        Map<String, Object> tokenMap = new HashMap<>();
+        tokenMap.put("token", token);
+        return ResponseEntity.ok(DataResponse.builder()
+                .message("Token access")
+                .status(200)
+                .data(tokenMap)
+                .build());
+    }
+
 
     @GetMapping("/admin/token")
     public ResponseEntity<DataResponse> getAdminToken() {

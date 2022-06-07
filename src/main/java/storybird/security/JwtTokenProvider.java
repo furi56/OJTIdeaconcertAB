@@ -115,24 +115,12 @@ public class JwtTokenProvider { // JWT 토큰을 생성 및 검증 모듈
 	// Request의 Header에서 token 파싱
 	public String resolveToken(HttpServletRequest req) {
 		/*
-		* HttpServletRequest를 통해 Authorization 헤더에 존재하는 Bearer 토큰을 반환해야함
-		* 반환된 토큰 값은 [ Bearer 토큰값 ] 형식으로 나올텐데
+		* HttpServletRequest를 통해 Authorization 헤더에 존재하는 Bearer 토큰을 반환해야함 - Enumeration<String> headers = req.getHeaders(AUTHORIZATION);
+		* 반환된 토큰 값은 [ Bearer 토큰값 ] 형식으로 나올텐데 ex) Bearer abcdeToken
 		* 이때 앞에 "Bearer" 부분을 제외하고 뒤 "토큰값" 부분만 추출해서 return
+		*  ex) Bearer abcdeToken => abcdeToken
 		*/
 		return null;
-	}
-
-	// Request의 Header에서 token 파싱
-	public String resolveConnectAccessToken(HttpServletRequest req) {
-		Enumeration<String> headers = req.getHeaders(AUTHORIZATION_ACCESS);
-		while(headers.hasMoreElements()){
-			String value = headers.nextElement();
-			if(value.toLowerCase().startsWith(ACCESS_TOKEN_HEADER.toLowerCase())){
-				String token = value.substring(ACCESS_TOKEN_HEADER.length()).trim();
-				return value.substring(ACCESS_TOKEN_HEADER.length()).trim();
-			}
-		}
-		return Strings.EMPTY;
 	}
 
 	//retrieve username from jwt token

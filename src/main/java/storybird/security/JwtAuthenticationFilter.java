@@ -40,17 +40,17 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
         String token = "";
         jwtTokenProvider.resolveToken(req); // 구현필요
         /*
-        * token = HttpServletRequest req 를 통해 header에 있는 토큰값 가져오기
-        * jwtTokenProvider.resolveToken - 를 구현하고 사용해야함;
+        * token = jwtTokenProvider.resolveToken(req) 를 통해 header에 있는 토큰값 가져오기
          */
 
         //토큰 만료시 에러 발생
         /*
-        * 1. token이 존재하나 유효기간이 지낫을때 403에러가 표시되도록 구현
-        *       - 필터처리중 값을 반환하는 방법 필요
+        * 1. token이 존재하나 유효기간이 지낫을때 403에러가 표시되도록 구현 후
+        *       println("error") 출력
         *
         * 2. token이 존재하고 유효기간이 지나지 않았을때
-        *    SecurityContextHolder.getContext().setAuthentication 에 인증 정보 저장
+        *    SecurityContextHolder.getContext().setAuthentication 에 인증 정보 저장 후
+        *    println을 사용하여 토큰값 출력
         *
         * 사용해야할 메소드
         * jwtTokenProvider.validateToken - 토큰 유효 기간 만료 여부 반환 (boolean)

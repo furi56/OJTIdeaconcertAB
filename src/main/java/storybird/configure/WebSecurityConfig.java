@@ -62,12 +62,6 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 				.and()
 				.authorizeRequests()
 				.antMatchers("/**/login","/**/signup","/**/token").permitAll()
-				/*.antMatchers("/admin/**").hasAnyRole(UserRole.ROLE_ADMIN1.getRole(), UserRole.ROLE_ADMIN2.getRole(),
-						UserRole.ROLE_ADMIN3.getRole(), UserRole.ROLE_ADMIN4.getRole(), UserRole.ROLE_ADMIN5.getRole(),
-						UserRole.ROLE_ADMIN6.getRole(), UserRole.ROLE_ADMIN7.getRole(), UserRole.ROLE_ADMIN8.getRole(),
-						UserRole.ROLE_ADMIN9.getRole(), UserRole.ROLE_ADMIN10.getRole(), UserRole.ROLE_AUTHOR1.getRole(),
-						UserRole.ROLE_AUTHOR2.getRole(), UserRole.ROLE_AUTHOR3.getRole(), UserRole.ROLE_PARTNER1.getRole(),
-						UserRole.ROLE_PARTNER2.getRole(), UserRole.ROLE_PARTNER3.getRole(), UserRole.ROLE_EMPLOYEE.getRole())*/
 				.antMatchers("/*/user/conn").authenticated()
 				.antMatchers(HttpMethod.GET, "/actuator/health").permitAll()
 				.anyRequest().permitAll()
