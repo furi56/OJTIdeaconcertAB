@@ -49,7 +49,7 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
         *       println("error") 출력
         *
         * 2. token이 존재하고 유효기간이 지나지 않았을때
-        *    SecurityContextHolder.getContext().setAuthentication 에 인증 정보 저장 후
+        *    SecurityContextHolder.getContext().setAuthentication 에 인증 정보 저장 후  *필수
         *    println을 사용하여 토큰값 출력
         *
         * 사용해야할 메소드

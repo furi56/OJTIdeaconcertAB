@@ -34,10 +34,10 @@ public class JwtUserDetailsService implements UserDetailsService {
         MemberVo userInfo = null;
         /*
         [member 테이블 사용]
-        * userInfo = member 테이블에 저장된 유저 정보를 저장하도록 구현(ID 검색)
+        * userInfo = member 테이블에 저장된 유저 정보를 저장하도록 구현 (select ... where mem_id = id)
         */
 
-        //userInfo가 존재할때 ToonflixUsers(로그인 유저 정보)를 반환하도록 설정
+        //userInfo가 존재할때 ToonflixUsers(로그인 유저 정보)를 반환하도록 설정하는 기능
         if (userInfo != null) {
             if (userInfo.getSeces_mem_yn().equals("Y")) throw new UsernameNotFoundException("유저를 찾을 수 없습니다.");
             HashMap otherInfoMap = new HashMap<>();
