@@ -20,8 +20,8 @@ https://drive.google.com/file/d/1-KwSTD2XILeX198GEvvCL5Uf8b2dr2HK/view?usp=shari
 
 2. JWT 발급 방법
   - TestController에 발급 기능을 구현해놨습니다.
-    > /user/token - 정상토큰 발급
-    > /user/exp/token - 만료토큰 발급
+    * /user/token - 정상토큰 발급
+    * /user/exp/token - 만료토큰 발급
 
   - JWT 필터 처리 테스트시 사용 [ URL /test/data ]
 
@@ -33,15 +33,15 @@ https://drive.google.com/file/d/1-KwSTD2XILeX198GEvvCL5Uf8b2dr2HK/view?usp=shari
 ============================================
 1. JWT 발급 처리 과정 확인
   - 작업 필요 Class
-  >storybird.security.JwtUserDetailsService - loadUserByUsernagitme메소드
+    >storybird.security.JwtUserDetailsService - loadUserByUsernagitme메소드
   
   - 원본 Class
-  >storybird.security.JwtUserDetailsServiceOrigin
+    >storybird.security.JwtUserDetailsServiceOrigin
   
 2. JWT 발급 테스트
   - TestController에 발급 기능을 구현해놨습니다.
-    > /test/token - 토큰 발급
-    > /test/user - 토큰 인증(Bearer Token 설정 후 URL 요청)
+    * /test/token - 토큰 발급
+    * /test/user - 토큰 인증(Bearer Token 설정 후 URL 요청)
   
 =============================================
 
